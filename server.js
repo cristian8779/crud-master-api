@@ -28,7 +28,7 @@ if (!mongoURI) {
   process.exit(1);
 }
 
-mongoose.connect(mongoURI, )
+mongoose.connect(mongoURI)
   .then(() => console.log('✅ Conectado a MongoDB Atlas'))
   .catch(err => {
     console.error('❌ Error al conectar a MongoDB:', err);
