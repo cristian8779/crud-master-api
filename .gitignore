@@ -6,3 +6,5 @@ node_modules/
 
 # Ignorar la carpeta del frontend
 crud/
+
+uploads/
