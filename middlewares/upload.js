@@ -23,19 +23,31 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // Límite de 5MB
   fileFilter: (req, file, cb) => {
     console.log('Tipo MIME recibido:', file.mimetype);
+    
+    // Lista de mimetypes permitidos
     const allowedMimeTypes = [
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/avif',
-      'image/pjpeg' // Agregamos 'image/pjpeg' para cubrir esa variante
+      'image/pjpeg'
     ];
+    
+    // Si el mimetype es 'application/octet-stream', validar por la extensión del archivo
+    if (file.mimetype === 'application/octet-stream') {
+      const allowedExtensions = ['jpeg', 'jpg', 'png', 'avif'];
+      const fileExtension = file.originalname.split('.').pop().toLowerCase();
+      if (allowedExtensions.includes(fileExtension)) {
+        return cb(null, true);
+      }
+      return cb(new Error('Formato de imagen no válido. Solo JPG, JPEG, PNG y AVIF son permitidos.'));
+    }
     
     if (allowedMimeTypes.includes(file.mimetype)) {
       return cb(null, true);
     }
     
-    cb(new Error('Formato de imagen no válido. Solo JPG, JPEG, PNG y AVIF son permitidos.'));
+    return cb(new Error('Formato de imagen no válido. Solo JPG, JPEG, PNG y AVIF son permitidos.'));
   },
 });
 
