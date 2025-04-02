@@ -25,6 +25,10 @@ router.post('/usuarios', crearUsuario);
 router.put('/usuarios/:id', verificarToken, verificarAdmin, actualizarUsuario);
 
 // Eliminar usuario (solo admin)
-router.delete('/usuarios/:id', verificarToken, verificarAdmin, eliminarUsuario);
+router.delete('/usuarios/:id', verificarToken, eliminarUsuario);
+
+
+router.get('/perfil', verificarToken, obtenerPerfil);
+
 
 module.exports = router;

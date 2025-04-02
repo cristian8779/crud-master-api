@@ -18,6 +18,14 @@ const UsuarioSchema = new mongoose.Schema({
     type: String,
     required: [true, "La contraseña es obligatoria"]
   },
+  direccion: {
+    type: String,
+    default: ""
+  },
+  telefono: {
+    type: String,
+    default: ""
+  },
   rol: {
     type: String,
     enum: ['usuario', 'admin'],
