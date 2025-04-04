@@ -4,7 +4,8 @@ const {
   loginUsuario, 
   obtenerUsuarios, 
   actualizarUsuario, 
-  eliminarUsuario 
+  eliminarUsuario,
+  obtenerPerfil 
 } = require('../controllers/usuarioController');
 
 const { verificarToken, verificarAdmin } = require('../middlewares/authMiddleware');
