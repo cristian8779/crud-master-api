@@ -5,10 +5,11 @@ const cors = require('cors');
 
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const productoRoutes = require('./routes/productoRoutes');
-const categoriaRoutes = require('./routes/categoriaRoutes'); 
-const ventaRoutes = require('./routes/ventaRoutes'); 
+const categoriaRoutes = require('./routes/categoriaRoutes');
+const ventaRoutes = require('./routes/ventaRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
 
+const paymentRoutes = require('./routes/payment.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,10 +22,11 @@ app.use(cors());
 app.use('/api/auth', usuarioRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
-app.use('/api/ventas', ventaRoutes); 
-app.use('/api/carrito', carritoRoutes); // ✅
+app.use('/api/ventas', ventaRoutes);
+app.use('/api/carrito', carritoRoutes);
 
-
+// ✅ Nueva ruta para pagos
+app.use('/api/payments', paymentRoutes);
 
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
