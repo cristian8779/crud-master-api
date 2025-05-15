@@ -1,28 +1,54 @@
 const Producto = require('../models/Producto');
+const Categoria = require('../models/Categoria');
 const cloudinary = require('../config/cloudinary');
 
 // Crear un producto (Solo Admin)
 const crearProducto = async (req, res) => {
   try {
-    console.log("Archivo recibido:", req.file); // Depuración
-
     if (req.usuario.rol !== 'admin') {
       return res.status(403).json({ mensaje: 'No tienes permisos para agregar productos' });
     }
 
-    const { nombre, descripcion, precio } = req.body;
-    if (!nombre || !descripcion || !precio) {
-      return res.status(400).json({ mensaje: 'Todos los campos son obligatorios' });
+    const { nombre, descripcion, precio, categoria, variaciones, stock, disponible } = req.body;
+
+    if (!nombre || !descripcion || !precio || !categoria) {
+      return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ mensaje: 'Debes subir una imagen' });
+    // Validar categoría
+    const categoriaExistente = await Categoria.findById(categoria);
+    if (!categoriaExistente) {
+      return res.status(400).json({ mensaje: 'Categoría no válida' });
     }
 
-    // Cloudinary ya devuelve la URL de la imagen
-    const imagenUrl = req.file.path;
+    // Si no hay variaciones, se verifica el stock y disponible del producto base
+    let variacionesParseadas = [];
+    if (variaciones) {
+      variacionesParseadas = JSON.parse(variaciones);
+      if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
+        return res.status(400).json({ mensaje: 'Debe haber al menos una variación' });
+      }
+    }
 
-    const nuevoProducto = new Producto({ nombre, descripcion, precio, imagen: imagenUrl });
+    let imagenUrl = '', publicId = '';
+    if (req.file) {
+      const subida = await cloudinary.uploader.upload(req.file.path, { folder: 'productos' });
+      imagenUrl = subida.secure_url;
+      publicId = subida.public_id;
+    }
+
+    const nuevoProducto = new Producto({
+      nombre,
+      descripcion,
+      precio,
+      categoria,
+      variaciones: variacionesParseadas,
+      stock: stock || 0, // Si no hay variaciones, el stock se toma del producto base
+      disponible: disponible !== undefined ? disponible : true, // Si no se especifica, se asume disponible
+      imagen: imagenUrl,
+      public_id: publicId
+    });
+
     await nuevoProducto.save();
 
     res.status(201).json({ mensaje: 'Producto agregado', producto: nuevoProducto });
@@ -32,56 +58,56 @@ const crearProducto = async (req, res) => {
   }
 };
 
-// Obtener todos los productos (Disponible para todos)
+// Obtener todos los productos
 const obtenerProductos = async (req, res) => {
   try {
-    const productos = await Producto.find();
+    const productos = await Producto.find().populate('categoria', 'nombre');
     res.json({ productos });
   } catch (error) {
+    console.error("Error al obtener productos:", error);
     res.status(500).json({ mensaje: 'Error al obtener productos', error: error.message });
   }
 };
 
-// Actualizar un producto (Solo Admin)
+// Actualizar un producto
 const actualizarProducto = async (req, res) => {
   try {
-    console.log("Archivo recibido para actualización:", req.file);
-
     if (req.usuario.rol !== 'admin') {
       return res.status(403).json({ mensaje: 'No tienes permisos para actualizar productos' });
     }
 
     const { id } = req.params;
-    const { nombre, descripcion, precio } = req.body;
+    const { nombre, descripcion, precio, categoria, variaciones, stock, disponible } = req.body;
 
     let producto = await Producto.findById(id);
     if (!producto) {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
 
-    let imagenUrl = producto.imagen;
+    let actualizaciones = { nombre, descripcion, precio, categoria, stock, disponible };
 
-    // Si se sube una nueva imagen, reemplazar la anterior
-    if (req.file) {
-      try {
-        // Eliminar la imagen antigua de Cloudinary si existe
-        if (producto.imagen) {
-          const publicId = producto.imagen.split('/').pop().split('.')[0];
-          await cloudinary.uploader.destroy(`productos/${publicId}`);
-        }
-
-        // Usar la nueva imagen de Cloudinary
-        imagenUrl = req.file.path;
-      } catch (error) {
-        return res.status(500).json({ mensaje: 'Error al actualizar la imagen en Cloudinary', error: error.message });
+    // Si se proporcionan variaciones, se validan y se asignan
+    if (variaciones) {
+      const variacionesParseadas = JSON.parse(variaciones);
+      if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
+        return res.status(400).json({ mensaje: 'Debe haber al menos una variación' });
       }
+      actualizaciones.variaciones = variacionesParseadas;
     }
 
-    producto = await Producto.findByIdAndUpdate(
-      id,
-      { nombre, descripcion, precio, imagen: imagenUrl },
-      { new: true }
-    );
+    // Si se sube una nueva imagen
+    if (req.file) {
+      if (producto.public_id) {
+        // Eliminar imagen anterior de Cloudinary
+        await cloudinary.uploader.destroy(producto.public_id);
+      }
+
+      const subida = await cloudinary.uploader.upload(req.file.path, { folder: 'productos' });
+      actualizaciones.imagen = subida.secure_url;
+      actualizaciones.public_id = subida.public_id;
+    }
+
+    producto = await Producto.findByIdAndUpdate(id, actualizaciones, { new: true });
 
     res.json({ mensaje: 'Producto actualizado', producto });
   } catch (error) {
@@ -90,7 +116,7 @@ const actualizarProducto = async (req, res) => {
   }
 };
 
-// Eliminar un producto (Solo Admin)
+// Eliminar un producto
 const eliminarProducto = async (req, res) => {
   try {
     if (req.usuario.rol !== 'admin') {
@@ -104,17 +130,39 @@ const eliminarProducto = async (req, res) => {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
 
-    // Eliminar la imagen de Cloudinary antes de eliminar el producto
-    if (producto.imagen) {
-      const publicId = producto.imagen.split('/').pop().split('.')[0];
-      await cloudinary.uploader.destroy(`productos/${publicId}`);
+    if (producto.public_id) {
+      // Eliminar imagen de Cloudinary
+      await cloudinary.uploader.destroy(producto.public_id);
     }
 
     await Producto.findByIdAndDelete(id);
 
     res.json({ mensaje: 'Producto eliminado correctamente' });
   } catch (error) {
+    console.error("Error en eliminarProducto:", error);
     res.status(500).json({ mensaje: 'Error al eliminar producto', error: error.message });
+  }
+};
+
+// Cambiar estado del producto (activar/desactivar)
+const cambiarEstadoProducto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    if (!['activo', 'descontinuado'].includes(estado)) {
+      return res.status(400).json({ mensaje: 'Estado no válido' });
+    }
+
+    const producto = await Producto.findByIdAndUpdate(id, { estado }, { new: true });
+    if (!producto) {
+      return res.status(404).json({ mensaje: 'Producto no encontrado' });
+    }
+
+    res.json({ mensaje: 'Estado actualizado', producto });
+  } catch (error) {
+    console.error("Error al cambiar estado:", error);
+    res.status(500).json({ mensaje: 'Error al cambiar estado del producto', error: error.message });
   }
 };
 
@@ -122,5 +170,6 @@ module.exports = {
   crearProducto,
   obtenerProductos,
   actualizarProducto,
-  eliminarProducto
+  eliminarProducto,
+  cambiarEstadoProducto
 };

@@ -14,10 +14,19 @@ const crearUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: "Todos los campos son obligatorios" });
     }
 
+    // Validar formato de email
     email = email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ mensaje: "Ingrese un correo válido" });
+    }
+
+    // Validar contraseña fuerte
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[a-z]).{8,}$/; // Al menos 8 caracteres, una letra mayúscula, una letra minúscula y un número
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        mensaje: "La contraseña debe tener al menos 8 caracteres, una letra mayúscula, una letra minúscula y un número.",
+      });
     }
 
     const usuarioExistente = await Usuario.findOne({ email });
@@ -136,7 +145,7 @@ const obtenerUsuarios = async (req, res) => {
   }
 };
 
-// Actualizar usuario
+// Actualizar usuario con contraseña fuerte
 const actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
@@ -145,6 +154,14 @@ const actualizarUsuario = async (req, res) => {
     let usuario = await Usuario.findById(id);
     if (!usuario) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    // Validar contraseña fuerte si se va a actualizar
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[a-z]).{8,}$/; // Al menos 8 caracteres, una letra mayúscula, una letra minúscula y un número
+    if (password && !passwordRegex.test(password)) {
+      return res.status(400).json({
+        mensaje: "La contraseña debe tener al menos 8 caracteres, una letra mayúscula, una letra minúscula y un número.",
+      });
     }
 
     // Solo admin puede cambiar roles, y no puede cambiar su propio rol
@@ -176,6 +193,7 @@ const actualizarUsuario = async (req, res) => {
   }
 };
 
+// Eliminar usuario
 const eliminarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
@@ -216,8 +234,6 @@ const eliminarUsuario = async (req, res) => {
     res.status(500).json({ mensaje: "Error al eliminar usuario", error: error.message });
   }
 };
-
-
 
 module.exports = {
   crearUsuario,
