@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const connectDB = require('./config/database');
 
 // Importar rutas
@@ -19,7 +20,10 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cors());
 
-// Rutas
+// 🔧 Servir archivo HTML estático desde carpeta "utils"
+app.use(express.static(path.join(__dirname, 'utils')));
+
+// Rutas API
 app.use('/api/auth', usuarioRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
@@ -28,6 +32,7 @@ app.use('/api/carrito', carritoRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 
+// Ruta principal
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
 });
@@ -35,8 +40,7 @@ app.get('/', (req, res) => {
 // Conectar a MongoDB y luego iniciar el servidor
 const startServer = async () => {
   try {
-    await connectDB(); // Conectar a MongoDB usando la nueva configuración
-    
+    await connectDB();
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🔥 Servidor corriendo en http://0.0.0.0:${PORT}`);
     });

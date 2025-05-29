@@ -20,6 +20,7 @@ const enviarResetPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "Correo electrónico inválido" });
     }
 
+    // Buscar usuario ignorando mayúsculas y espacios
     const usuario = await Usuario.findOne({ email: email.trim().toLowerCase() });
     if (!usuario) {
       return res.status(404).json({ mensaje: "Correo no encontrado" });
@@ -29,15 +30,14 @@ const enviarResetPassword = async (req, res) => {
     const token = crypto.randomBytes(32).toString("hex");
     const expiracion = Date.now() + 10 * 60 * 1000; // 10 minutos en ms
 
-    // Guardar token y expiración en usuario
     usuario.resetToken = token;
     usuario.resetTokenExpira = expiracion;
     await usuario.save();
 
-    // Crear URL con esquema deep link para la app
-    const url = `crud://reset-password/${token}`;
+    // Cambiar esta URL al frontend donde el usuario ingresará la nueva contraseña,
+    // ejemplo: https://tu-frontend.com/reset-password.html?token=...
+    const url = `http://20.251.145.196:5000/reset-password?token=${token}`;
 
-    // Enviar correo con plantilla, pasando nombre y url
     await resend.emails.send({
       from: "soporte@soportee.store",
       to: [usuario.email],
@@ -45,10 +45,10 @@ const enviarResetPassword = async (req, res) => {
       html: generarPlantillaResetPassword(usuario.nombre || "usuario", url),
     });
 
-    res.json({ mensaje: "Correo de restablecimiento enviado" });
+    return res.json({ mensaje: "Correo de restablecimiento enviado" });
   } catch (error) {
     console.error("Error en enviarResetPassword:", error);
-    res.status(500).json({ mensaje: "Error al enviar el correo", error: error.message });
+    return res.status(500).json({ mensaje: "Error al enviar el correo", error: error.message });
   }
 };
 
@@ -61,6 +61,7 @@ const resetearPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "La nueva contraseña es obligatoria" });
     }
 
+    // Buscar usuario con token válido y no expirado
     const usuario = await Usuario.findOne({
       resetToken: token,
       resetTokenExpira: { $gt: Date.now() },
@@ -70,8 +71,8 @@ const resetearPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "Token inválido o expirado" });
     }
 
-    // Validar contraseña segura
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[a-z]).{8,}$/;
+    // Validar contraseña (al menos 8 caracteres, mayúscula, minúscula y número)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(nuevaPassword)) {
       return res.status(400).json({
         mensaje:
@@ -79,20 +80,20 @@ const resetearPassword = async (req, res) => {
       });
     }
 
-    // Encriptar nueva contraseña
+    // Encriptar y guardar nueva contraseña
     const salt = await bcrypt.genSalt(10);
     usuario.password = await bcrypt.hash(nuevaPassword, salt);
 
-    // Eliminar token usado
+    // Limpiar token y expiración para evitar reutilización
     usuario.resetToken = undefined;
     usuario.resetTokenExpira = undefined;
 
     await usuario.save();
 
-    res.json({ mensaje: "Contraseña actualizada correctamente" });
+    return res.json({ mensaje: "Contraseña actualizada correctamente" });
   } catch (error) {
     console.error("Error en resetearPassword:", error);
-    res.status(500).json({ mensaje: "Error al restablecer la contraseña", error: error.message });
+    return res.status(500).json({ mensaje: "Error al restablecer la contraseña", error: error.message });
   }
 };
 
