@@ -34,9 +34,8 @@ const enviarResetPassword = async (req, res) => {
     usuario.resetTokenExpira = expiracion;
     await usuario.save();
 
-    // Cambiar esta URL al frontend donde el usuario ingresará la nueva contraseña,
-    // ejemplo: https://tu-frontend.com/reset-password.html?token=...
-    const url = `http://20.251.145.196:5000/reset-password?token=${token}`;
+    // URL corregida que apunta al frontend con el archivo HTML donde el usuario ingresará la nueva contraseña
+    const url = `http://20.251.145.196:5000/utils/reset-password.html?token=${token}`;
 
     await resend.emails.send({
       from: "soporte@soportee.store",
