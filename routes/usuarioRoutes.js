@@ -13,7 +13,8 @@ const {
 
 const {
   enviarResetPassword,
-  resetearPassword
+  resetearPassword,
+  verificarTokenResetPassword // ✅ NUEVA función
 } = require('../controllers/resetPasswordController');
 
 const { verificarToken, verificarAdmin } = require('../middlewares/authMiddleware');
@@ -51,6 +52,9 @@ router.delete('/perfil/imagen', verificarToken, eliminarImagenPerfil);
 
 // Solicitar token para restablecer contraseña
 router.post('/forgot-password', enviarResetPassword);
+
+// Verificar validez del token antes de permitir cambio de contraseña
+router.get('/reset-password/:token', verificarTokenResetPassword); // ✅ NUEVA ruta
 
 // Restablecer contraseña con token
 router.post('/reset-password/:token', resetearPassword);

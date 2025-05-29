@@ -7,6 +7,7 @@ require("dotenv").config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Enviar email de restablecimiento de contraseña
 const enviarResetPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -20,21 +21,18 @@ const enviarResetPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "Correo electrónico inválido" });
     }
 
-    // Buscar usuario ignorando mayúsculas y espacios
     const usuario = await Usuario.findOne({ email: email.trim().toLowerCase() });
     if (!usuario) {
       return res.status(404).json({ mensaje: "Correo no encontrado" });
     }
 
-    // Generar token y expiración (10 minutos)
     const token = crypto.randomBytes(32).toString("hex");
-    const expiracion = Date.now() + 10 * 60 * 1000; // 10 minutos en ms
+    const expiracion = Date.now() + 10 * 60 * 1000; // 10 minutos
 
     usuario.resetToken = token;
     usuario.resetTokenExpira = expiracion;
     await usuario.save();
 
-    // Enviar email usando la plantilla con nombre y token
     await resend.emails.send({
       from: "soporte@soportee.store",
       to: [usuario.email],
@@ -49,16 +47,11 @@ const enviarResetPassword = async (req, res) => {
   }
 };
 
-const resetearPassword = async (req, res) => {
+// Validar token antes de mostrar formulario de reset
+const verificarTokenResetPassword = async (req, res) => {
   try {
     const { token } = req.params;
-    const { nuevaPassword } = req.body;
 
-    if (!nuevaPassword) {
-      return res.status(400).json({ mensaje: "La nueva contraseña es obligatoria" });
-    }
-
-    // Buscar usuario con token válido y no expirado
     const usuario = await Usuario.findOne({
       resetToken: token,
       resetTokenExpira: { $gt: Date.now() },
@@ -68,20 +61,42 @@ const resetearPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "Token inválido o expirado" });
     }
 
-    // Validar contraseña (al menos 8 caracteres, mayúscula, minúscula y número)
+    return res.json({ mensaje: "Token válido" });
+  } catch (error) {
+    console.error("Error en verificarTokenResetPassword:", error);
+    return res.status(500).json({ mensaje: "Error del servidor", error: error.message });
+  }
+};
+
+// Cambiar la contraseña
+const resetearPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { nuevaPassword } = req.body;
+
+    if (!nuevaPassword) {
+      return res.status(400).json({ mensaje: "La nueva contraseña es obligatoria" });
+    }
+
+    const usuario = await Usuario.findOne({
+      resetToken: token,
+      resetTokenExpira: { $gt: Date.now() },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ mensaje: "Token inválido o expirado" });
+    }
+
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(nuevaPassword)) {
       return res.status(400).json({
-        mensaje:
-          "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.",
+        mensaje: "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.",
       });
     }
 
-    // Encriptar y guardar nueva contraseña
     const salt = await bcrypt.genSalt(10);
     usuario.password = await bcrypt.hash(nuevaPassword, salt);
 
-    // Limpiar token y expiración para evitar reutilización
     usuario.resetToken = undefined;
     usuario.resetTokenExpira = undefined;
 
@@ -96,5 +111,6 @@ const resetearPassword = async (req, res) => {
 
 module.exports = {
   enviarResetPassword,
+  verificarTokenResetPassword,
   resetearPassword,
 };
