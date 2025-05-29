@@ -43,7 +43,7 @@ const enviarResetPassword = async (req, res) => {
     await usuario.save();
 
     // Generar URL con esquema deep link personalizado
-const url = `http://20.251.145.196:5000/reset-password?token=${token}`;
+const url = `crud://reset-password/${token}`;
 
 
     // Enviar correo con plantilla HTML
