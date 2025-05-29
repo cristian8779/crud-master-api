@@ -20,8 +20,8 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cors());
 
-// 🔧 Servir archivo HTML estático desde carpeta "utils"
-app.use(express.static(path.join(__dirname, 'utils')));
+// 🔧 Servir archivo HTML estático desde carpeta "public"
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas API
 app.use('/api/auth', usuarioRoutes);

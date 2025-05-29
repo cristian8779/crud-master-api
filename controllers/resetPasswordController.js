@@ -34,14 +34,12 @@ const enviarResetPassword = async (req, res) => {
     usuario.resetTokenExpira = expiracion;
     await usuario.save();
 
-    // URL corregida que apunta al frontend con el archivo HTML donde el usuario ingresará la nueva contraseña
-    const url = `http://20.251.145.196:5000/utils/reset-password.html?token=${token}`;
-
+    // Enviar email usando la plantilla con nombre y token
     await resend.emails.send({
       from: "soporte@soportee.store",
       to: [usuario.email],
       subject: "Restablecer contraseña",
-      html: generarPlantillaResetPassword(usuario.nombre || "usuario", url),
+      html: generarPlantillaResetPassword(usuario.nombre || "usuario", token),
     });
 
     return res.json({ mensaje: "Correo de restablecimiento enviado" });

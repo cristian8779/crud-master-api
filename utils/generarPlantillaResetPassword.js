@@ -1,5 +1,6 @@
 const generarPlantillaResetPassword = (nombre, token) => {
-  const url = `http://20.251.145.196:5000/utils/reset-password.html?token=${token}`;
+  // URL corregida, sin /utils, apuntando directo al HTML en public/
+  const url = `http://20.251.145.196:5000/reset-password.html?token=${token}`;
   return `
     <!DOCTYPE html>
     <html lang="es">
