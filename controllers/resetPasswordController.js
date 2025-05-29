@@ -7,17 +7,14 @@ require("dotenv").config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Enviar correo con token para resetear contraseña
 const enviarResetPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Validar que se proporcione un email
     if (!email) {
       return res.status(400).json({ mensaje: "El correo es obligatorio" });
     }
 
-    // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ mensaje: "Correo electrónico inválido" });
@@ -30,23 +27,17 @@ const enviarResetPassword = async (req, res) => {
 
     // Generar token y expiración (10 minutos)
     const token = crypto.randomBytes(32).toString("hex");
-    const expiracion = Date.now() + 1000 * 60 * 10;
+    const expiracion = Date.now() + 10 * 60 * 1000; // 10 minutos en ms
 
-    // Eliminar cualquier token anterior por seguridad
-    usuario.resetToken = undefined;
-    usuario.resetTokenExpira = undefined;
-    await usuario.save();
-
-    // Guardar nuevo token
+    // Guardar token y expiración en usuario
     usuario.resetToken = token;
     usuario.resetTokenExpira = expiracion;
     await usuario.save();
 
-    // Generar URL con esquema deep link personalizado
-const url = `crud://reset-password/${token}`;
+    // Crear URL con esquema deep link para la app
+    const url = `crud://reset-password/${token}`;
 
-
-    // Enviar correo con plantilla HTML
+    // Enviar correo con plantilla, pasando nombre y url
     await resend.emails.send({
       from: "soporte@soportee.store",
       to: [usuario.email],
@@ -61,7 +52,6 @@ const url = `crud://reset-password/${token}`;
   }
 };
 
-// Resetear contraseña con token
 const resetearPassword = async (req, res) => {
   try {
     const { token } = req.params;

@@ -1,5 +1,4 @@
-const generarPlantillaResetPassword = (nombre, token) => {
-  const url = `crud://reset-password/${token}`;  // <-- deep link para abrir app
+const generarPlantillaResetPassword = (nombre, url) => {
   return `
     <div style="margin: 0; padding: 0; background-color: #f4f4f4;">
       <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
