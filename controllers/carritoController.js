@@ -1,16 +1,15 @@
 const Carrito = require('../models/Carrito');
+const Producto = require('../models/Producto');
 
+// Obtener carrito completo del usuario
 const obtenerCarrito = async (req, res) => {
   try {
-    // Intentar obtener el carrito del usuario
     const carrito = await Carrito.findOne({ usuarioId: req.user.id }).populate('productos.productoId');
 
-    // Si no se encuentra el carrito, enviar un mensaje indicando que está vacío
     if (!carrito || carrito.productos.length === 0) {
       return res.status(404).json({ message: 'Carrito vacío' });
     }
 
-    // Si se encuentra el carrito, se envía la respuesta con los productos
     res.json(carrito);
   } catch (err) {
     console.error('Error al obtener el carrito:', err);
@@ -18,32 +17,27 @@ const obtenerCarrito = async (req, res) => {
   }
 };
 
+// Agregar producto al carrito
 const agregarAlCarrito = async (req, res) => {
   const { productoId, talla, color, cantidad } = req.body;
 
   try {
-    // Buscar el carrito del usuario
     let carrito = await Carrito.findOne({ usuarioId: req.user.id });
 
-    // Si no existe un carrito, creamos uno nuevo
     if (!carrito) {
       carrito = new Carrito({ usuarioId: req.user.id, productos: [] });
     }
 
-    // Verificamos si el producto ya existe en el carrito con la misma talla y color
     const index = carrito.productos.findIndex(p =>
       p.productoId.toString() === productoId && p.talla === talla && p.color === color
     );
 
-    // Si el producto ya existe, actualizamos la cantidad
     if (index >= 0) {
       carrito.productos[index].cantidad += cantidad;
     } else {
-      // Si no existe, lo agregamos al carrito
       carrito.productos.push({ productoId, talla, color, cantidad });
     }
 
-    // Guardamos los cambios en el carrito
     await carrito.save();
     res.json(carrito);
   } catch (err) {
@@ -52,28 +46,23 @@ const agregarAlCarrito = async (req, res) => {
   }
 };
 
+// Actualizar cantidad de un producto en el carrito
 const actualizarCantidad = async (req, res) => {
   const { productoId, talla, color, cantidad } = req.body;
 
   try {
-    // Buscar el carrito del usuario
     const carrito = await Carrito.findOne({ usuarioId: req.user.id });
 
-    // Si no se encuentra el carrito, retornamos un error
     if (!carrito) return res.status(404).json({ message: 'Carrito no encontrado' });
 
-    // Buscar el producto dentro del carrito
     const producto = carrito.productos.find(p =>
       p.productoId.toString() === productoId && p.talla === talla && p.color === color
     );
 
-    // Si el producto no se encuentra en el carrito, retornamos un error
     if (!producto) return res.status(404).json({ message: 'Producto no encontrado en el carrito' });
 
-    // Actualizamos la cantidad del producto
     producto.cantidad = cantidad;
 
-    // Guardamos los cambios en el carrito
     await carrito.save();
     res.json(carrito);
   } catch (err) {
@@ -82,22 +71,19 @@ const actualizarCantidad = async (req, res) => {
   }
 };
 
+// Eliminar producto del carrito
 const eliminarDelCarrito = async (req, res) => {
   const { productoId, talla, color } = req.body;
 
   try {
-    // Buscar el carrito del usuario
     const carrito = await Carrito.findOne({ usuarioId: req.user.id });
 
-    // Si no se encuentra el carrito, retornamos un error
     if (!carrito) return res.status(404).json({ message: 'Carrito no encontrado' });
 
-    // Filtramos el producto que se desea eliminar del carrito
     carrito.productos = carrito.productos.filter(p =>
       !(p.productoId.toString() === productoId && p.talla === talla && p.color === color)
     );
 
-    // Guardamos los cambios en el carrito
     await carrito.save();
     res.json(carrito);
   } catch (err) {
@@ -106,9 +92,52 @@ const eliminarDelCarrito = async (req, res) => {
   }
 };
 
+// Obtener resumen del carrito con subtotales y total
+const obtenerResumenCarrito = async (req, res) => {
+  try {
+    const carrito = await Carrito.findOne({ usuarioId: req.user.id }).populate('productos.productoId');
+    if (!carrito || carrito.productos.length === 0) {
+      return res.status(404).json({ message: 'Carrito vacío' });
+    }
+
+    const resumen = carrito.productos.map(item => {
+      const producto = item.productoId;
+      let precio = producto.precio;
+
+      const variacion = producto.variaciones.find(v => v.talla === item.talla && v.color === item.color);
+      if (variacion && variacion.precio != null) {
+        precio = variacion.precio;
+      }
+
+      const subtotal = item.cantidad * precio;
+
+      return {
+        producto: {
+          id: producto._id,
+          nombre: producto.nombre,
+          talla: item.talla,
+          color: item.color,
+          precio,
+          imagen: variacion?.imagen || producto.imagen || null
+        },
+        cantidad: item.cantidad,
+        subtotal
+      };
+    });
+
+    const total = resumen.reduce((acc, item) => acc + item.subtotal, 0);
+
+    res.json({ resumen, total });
+  } catch (err) {
+    console.error('Error al obtener resumen del carrito:', err);
+    res.status(500).json({ message: 'Error en el servidor al obtener el resumen del carrito' });
+  }
+};
+
 module.exports = {
   obtenerCarrito,
   agregarAlCarrito,
   actualizarCantidad,
-  eliminarDelCarrito
+  eliminarDelCarrito,
+  obtenerResumenCarrito
 };

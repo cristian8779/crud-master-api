@@ -15,18 +15,20 @@ const crearProducto = async (req, res) => {
       return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
     }
 
-    // Validar categoría
     const categoriaExistente = await Categoria.findById(categoria);
     if (!categoriaExistente) {
       return res.status(400).json({ mensaje: 'Categoría no válida' });
     }
 
-    // Si no hay variaciones, se verifica el stock y disponible del producto base
     let variacionesParseadas = [];
     if (variaciones) {
-      variacionesParseadas = JSON.parse(variaciones);
-      if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
-        return res.status(400).json({ mensaje: 'Debe haber al menos una variación' });
+      try {
+        variacionesParseadas = JSON.parse(variaciones);
+        if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
+          return res.status(400).json({ mensaje: 'Debe haber al menos una variación válida' });
+        }
+      } catch (err) {
+        return res.status(400).json({ mensaje: 'Variaciones mal formateadas' });
       }
     }
 
@@ -43,8 +45,8 @@ const crearProducto = async (req, res) => {
       precio,
       categoria,
       variaciones: variacionesParseadas,
-      stock: stock || 0, // Si no hay variaciones, el stock se toma del producto base
-      disponible: disponible !== undefined ? disponible : true, // Si no se especifica, se asume disponible
+      stock: stock || 0,
+      disponible: disponible !== undefined ? disponible : true,
       imagen: imagenUrl,
       public_id: publicId
     });
@@ -69,6 +71,20 @@ const obtenerProductos = async (req, res) => {
   }
 };
 
+// Obtener producto por ID
+const obtenerProductoPorId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const producto = await Producto.findById(id).populate('categoria', 'nombre');
+    if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
+
+    res.json({ producto });
+  } catch (error) {
+    console.error("Error al obtener producto por ID:", error);
+    res.status(500).json({ mensaje: 'Error al obtener producto', error: error.message });
+  }
+};
+
 // Actualizar un producto
 const actualizarProducto = async (req, res) => {
   try {
@@ -80,25 +96,31 @@ const actualizarProducto = async (req, res) => {
     const { nombre, descripcion, precio, categoria, variaciones, stock, disponible } = req.body;
 
     let producto = await Producto.findById(id);
-    if (!producto) {
-      return res.status(404).json({ mensaje: 'Producto no encontrado' });
-    }
+    if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
 
-    let actualizaciones = { nombre, descripcion, precio, categoria, stock, disponible };
+    const actualizaciones = {};
 
-    // Si se proporcionan variaciones, se validan y se asignan
+    if (nombre) actualizaciones.nombre = nombre;
+    if (descripcion) actualizaciones.descripcion = descripcion;
+    if (precio) actualizaciones.precio = precio;
+    if (categoria) actualizaciones.categoria = categoria;
+    if (stock !== undefined) actualizaciones.stock = stock;
+    if (disponible !== undefined) actualizaciones.disponible = disponible;
+
     if (variaciones) {
-      const variacionesParseadas = JSON.parse(variaciones);
-      if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
-        return res.status(400).json({ mensaje: 'Debe haber al menos una variación' });
+      try {
+        const variacionesParseadas = JSON.parse(variaciones);
+        if (!Array.isArray(variacionesParseadas) || variacionesParseadas.length === 0) {
+          return res.status(400).json({ mensaje: 'Debe haber al menos una variación válida' });
+        }
+        actualizaciones.variaciones = variacionesParseadas;
+      } catch (err) {
+        return res.status(400).json({ mensaje: 'Variaciones mal formateadas' });
       }
-      actualizaciones.variaciones = variacionesParseadas;
     }
 
-    // Si se sube una nueva imagen
     if (req.file) {
       if (producto.public_id) {
-        // Eliminar imagen anterior de Cloudinary
         await cloudinary.uploader.destroy(producto.public_id);
       }
 
@@ -125,18 +147,13 @@ const eliminarProducto = async (req, res) => {
 
     const { id } = req.params;
     const producto = await Producto.findById(id);
-
-    if (!producto) {
-      return res.status(404).json({ mensaje: 'Producto no encontrado' });
-    }
+    if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
 
     if (producto.public_id) {
-      // Eliminar imagen de Cloudinary
       await cloudinary.uploader.destroy(producto.public_id);
     }
 
     await Producto.findByIdAndDelete(id);
-
     res.json({ mensaje: 'Producto eliminado correctamente' });
   } catch (error) {
     console.error("Error en eliminarProducto:", error);
@@ -144,7 +161,7 @@ const eliminarProducto = async (req, res) => {
   }
 };
 
-// Cambiar estado del producto (activar/desactivar)
+// Cambiar estado (activo o descontinuado)
 const cambiarEstadoProducto = async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,9 +172,7 @@ const cambiarEstadoProducto = async (req, res) => {
     }
 
     const producto = await Producto.findByIdAndUpdate(id, { estado }, { new: true });
-    if (!producto) {
-      return res.status(404).json({ mensaje: 'Producto no encontrado' });
-    }
+    if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
 
     res.json({ mensaje: 'Estado actualizado', producto });
   } catch (error) {
@@ -169,6 +184,7 @@ const cambiarEstadoProducto = async (req, res) => {
 module.exports = {
   crearProducto,
   obtenerProductos,
+  obtenerProductoPorId,
   actualizarProducto,
   eliminarProducto,
   cambiarEstadoProducto

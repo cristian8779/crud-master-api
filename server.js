@@ -1,15 +1,16 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
+const connectDB = require('./config/database');
 
+// Importar rutas
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const productoRoutes = require('./routes/productoRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const ventaRoutes = require('./routes/ventaRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
-
 const paymentRoutes = require('./routes/payment.routes');
+const favoritoRoutes = require('./routes/favoritoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,29 +25,25 @@ app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/carrito', carritoRoutes);
-
-// ✅ Nueva ruta para pagos
 app.use('/api/payments', paymentRoutes);
+app.use('/api/favoritos', favoritoRoutes);
 
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
 });
 
-// Conectar a MongoDB
-const mongoURI = process.env.MONGO_URI;
-if (!mongoURI) {
-  console.error('❌ ERROR: No se encontró MONGO_URI en el archivo .env');
-  process.exit(1);
-}
-
-mongoose.connect(mongoURI)
-  .then(() => console.log('✅ Conectado a MongoDB Atlas'))
-  .catch(err => {
-    console.error('❌ Error al conectar a MongoDB:', err);
+// Conectar a MongoDB y luego iniciar el servidor
+const startServer = async () => {
+  try {
+    await connectDB(); // Conectar a MongoDB usando la nueva configuración
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🔥 Servidor corriendo en http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);
-  });
+  }
+};
 
-// Iniciar el servidor
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🔥 Servidor corriendo en http://0.0.0.0:${PORT}`);
-});
+startServer();

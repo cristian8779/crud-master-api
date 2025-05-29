@@ -26,11 +26,28 @@ const UsuarioSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
+  imagenPerfil: {
+    type: String,
+    default: ""
+  },
+  cloudinaryId: {
+    type: String,
+    default: ""
+  },
   rol: {
     type: String,
     enum: ['usuario', 'admin'],
     default: 'usuario'
+  },
+
+  // 👉 Campos para recuperación de contraseña
+  resetToken: {
+    type: String
+  },
+  resetTokenExpira: {
+    type: Date
   }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);
