@@ -6,6 +6,8 @@ const messageEl = document.getElementById('message');
 const submitBtn = document.getElementById('submitBtn');
 const modal = document.getElementById('modal');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
+const formContainer = document.querySelector('.form-container');
+const formTitle = document.querySelector('.form-title'); // Asegúrate que tengas este elemento en tu HTML
 
 // =======================
 // Configuración
@@ -43,6 +45,10 @@ const verificarToken = async () => {
     if (!res.ok) {
       showMessage(data.mensaje || 'Token inválido o expirado.');
       submitBtn.disabled = true;
+
+      // Ocultar solo el formulario y título, pero dejar visible el mensaje
+      if (form) form.style.display = 'none';
+      if (formTitle) formTitle.style.display = 'none';
     }
   } catch (err) {
     showMessage('Error al verificar token.');
@@ -87,11 +93,14 @@ form.addEventListener('submit', async (e) => {
       form.reset();
       modal.classList.add('active');
 
-      // Mostrar modal 3 segundos y luego ocultar formulario y modal
+      // Mostrar modal 15 segundos y luego ocultar solo formulario y título,
+      // pero dejar mensaje visible para que usuario vea info importante
       setTimeout(() => {
         modal.classList.remove('active');
-        form.style.display = 'none';
-      }, 3000);
+        if (form) form.style.display = 'none';
+        if (formTitle) formTitle.style.display = 'none';
+        // El contenedor no se oculta para que el mensaje siga visible
+      }, 15000);
     } else {
       showMessage(data.mensaje || 'Error al actualizar la contraseña.');
     }
@@ -104,11 +113,13 @@ form.addEventListener('submit', async (e) => {
 });
 
 // =======================
-// Modal
+// Modal: botón cerrar
 // =======================
 modalCloseBtn?.addEventListener('click', () => {
   modal.classList.remove('active');
-  form.style.display = 'none'; // También oculta el formulario al cerrar manualmente
+  if (form) form.style.display = 'none';
+  if (formTitle) formTitle.style.display = 'none';
+  // De nuevo, mensaje queda visible
 });
 
 // =======================
@@ -116,11 +127,24 @@ modalCloseBtn?.addEventListener('click', () => {
 // =======================
 document.querySelectorAll('.toggle-password').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const input = btn.previousElementSibling;
+    const input = btn.parentElement.querySelector('input');
     if (!input) return;
 
     input.type = input.type === 'password' ? 'text' : 'password';
-    btn.setAttribute('aria-label', input.type === 'password' ? 'Mostrar' : 'Ocultar');
+    btn.setAttribute('aria-label', input.type === 'password' ? 'Mostrar contraseña' : 'Ocultar contraseña');
+
+    const eyeOpen = btn.querySelector('.eye-open');
+    const eyeClosed = btn.querySelector('.eye-closed');
+
+    if (eyeOpen && eyeClosed) {
+      if (input.type === 'password') {
+        eyeOpen.style.display = 'inline';
+        eyeClosed.style.display = 'none';
+      } else {
+        eyeOpen.style.display = 'none';
+        eyeClosed.style.display = 'inline';
+      }
+    }
   });
 });
 

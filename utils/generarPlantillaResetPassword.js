@@ -1,5 +1,4 @@
 const generarPlantillaResetPassword = (nombre, token) => {
-  // URL corregida, sin /utils, apuntando directo al HTML en public/
   const url = `http://20.251.145.196:5000/reset-password.html?token=${token}`;
   return `
     <!DOCTYPE html>
@@ -22,8 +21,12 @@ const generarPlantillaResetPassword = (nombre, token) => {
             >
               <tr>
                 <td align="center" style="padding: 32px 24px 16px;">
-                  <div style="font-size: 48px;">🔐</div>
-                  <h2 style="font-size: 22px; color: #222222; margin: 16px 0 8px;">
+                  <div style="width: 64px; height: 64px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="#BE0C0C" viewBox="0 0 24 24" width="64" height="64">
+                      <path d="M12 1a5 5 0 0 0-5 5v4H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 6 0v4H9V6zm3 7a2 2 0 0 1 1 3.732V19a1 1 0 0 1-2 0v-2.268A2 2 0 0 1 12 13z"/>
+                    </svg>
+                  </div>
+                  <h2 style="font-size: 22px; color: #222222; margin: 16px 0 8px; font-weight: 600;">
                     Hola, ${nombre}
                   </h2>
                   <p style="font-size: 16px; color: #555555; margin: 0;">
@@ -51,10 +54,7 @@ const generarPlantillaResetPassword = (nombre, token) => {
                         font-weight: bold;
                         display: inline-block;
                         font-size: 16px;
-                        transition: background-color 0.3s ease;
                       "
-                      onmouseover="this.style.backgroundColor='#a30a0a'"
-                      onmouseout="this.style.backgroundColor='#BE0C0C'"
                     >
                       Restablecer contraseña
                     </a>
