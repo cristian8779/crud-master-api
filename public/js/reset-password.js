@@ -7,7 +7,7 @@ const submitBtn = document.getElementById('submitBtn');
 const modal = document.getElementById('modal');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const formContainer = document.querySelector('.form-container');
-const formTitle = document.querySelector('.form-title'); // Asegúrate que tengas este elemento en tu HTML
+const formTitle = document.querySelector('.form-title'); // Verifica que exista en el HTML
 
 // =======================
 // Configuración
@@ -19,12 +19,14 @@ const token = new URLSearchParams(window.location.search).get('token');
 // Utilidades
 // =======================
 const showMessage = (msg, type = 'error') => {
+  if (!messageEl) return;
   messageEl.textContent = msg;
   messageEl.className = `message ${type}`;
   messageEl.style.display = 'block';
 };
 
 const hideMessage = () => {
+  if (!messageEl) return;
   messageEl.style.display = 'none';
 };
 
@@ -34,7 +36,8 @@ const hideMessage = () => {
 const verificarToken = async () => {
   if (!token) {
     showMessage('Token no válido.');
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+    if (formContainer) formContainer.style.display = 'none'; // Oculta formulario y título
     return;
   }
 
@@ -44,22 +47,22 @@ const verificarToken = async () => {
 
     if (!res.ok) {
       showMessage(data.mensaje || 'Token inválido o expirado.');
-      submitBtn.disabled = true;
-
-      // Ocultar solo el formulario y título, pero dejar visible el mensaje
-      if (form) form.style.display = 'none';
-      if (formTitle) formTitle.style.display = 'none';
+      if (submitBtn) submitBtn.disabled = true;
+      if (formContainer) formContainer.style.display = 'none';
+      messageEl.style.display = 'block';
+      return;
     }
   } catch (err) {
     showMessage('Error al verificar token.');
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+    if (formContainer) formContainer.style.display = 'none';
   }
 };
 
 // =======================
 // Enviar nueva contraseña
 // =======================
-form.addEventListener('submit', async (e) => {
+form?.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideMessage();
 
@@ -92,15 +95,7 @@ form.addEventListener('submit', async (e) => {
       showMessage(data.mensaje || 'Contraseña actualizada.', 'success');
       form.reset();
       modal.classList.add('active');
-
-      // Mostrar modal 15 segundos y luego ocultar solo formulario y título,
-      // pero dejar mensaje visible para que usuario vea info importante
-      setTimeout(() => {
-        modal.classList.remove('active');
-        if (form) form.style.display = 'none';
-        if (formTitle) formTitle.style.display = 'none';
-        // El contenedor no se oculta para que el mensaje siga visible
-      }, 15000);
+      // Dejamos el formulario visible para que el usuario vea el modal
     } else {
       showMessage(data.mensaje || 'Error al actualizar la contraseña.');
     }
@@ -117,9 +112,8 @@ form.addEventListener('submit', async (e) => {
 // =======================
 modalCloseBtn?.addEventListener('click', () => {
   modal.classList.remove('active');
-  if (form) form.style.display = 'none';
-  if (formTitle) formTitle.style.display = 'none';
-  // De nuevo, mensaje queda visible
+  if (formContainer) formContainer.style.display = 'none';
+  hideMessage();
 });
 
 // =======================
@@ -127,23 +121,19 @@ modalCloseBtn?.addEventListener('click', () => {
 // =======================
 document.querySelectorAll('.toggle-password').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const input = btn.parentElement.querySelector('input');
+    const input = btn.parentElement.querySelector('input[type="password"], input[type="text"]');
     if (!input) return;
 
-    input.type = input.type === 'password' ? 'text' : 'password';
-    btn.setAttribute('aria-label', input.type === 'password' ? 'Mostrar contraseña' : 'Ocultar contraseña');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
 
     const eyeOpen = btn.querySelector('.eye-open');
     const eyeClosed = btn.querySelector('.eye-closed');
 
     if (eyeOpen && eyeClosed) {
-      if (input.type === 'password') {
-        eyeOpen.style.display = 'inline';
-        eyeClosed.style.display = 'none';
-      } else {
-        eyeOpen.style.display = 'none';
-        eyeClosed.style.display = 'inline';
-      }
+      eyeOpen.style.display = isPassword ? 'none' : 'inline';
+      eyeClosed.style.display = isPassword ? 'inline' : 'none';
     }
   });
 });
