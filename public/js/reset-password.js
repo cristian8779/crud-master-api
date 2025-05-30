@@ -1,178 +1,130 @@
+// =======================
+// Elementos DOM
+// =======================
 const form = document.getElementById('resetForm');
 const messageEl = document.getElementById('message');
 const submitBtn = document.getElementById('submitBtn');
 const modal = document.getElementById('modal');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 
+// =======================
+// Configuración
+// =======================
 const baseUrl = 'http://20.251.145.196:5000';
-const urlParams = new URLSearchParams(window.location.search);
-const token = urlParams.get('token');
+const token = new URLSearchParams(window.location.search).get('token');
 
-const MAX_ATTEMPTS = 5;
-const LOCK_TIME_MS = 5 * 60 * 1000; // 5 minutos
-let attempts = 0;
-let lockUntil = null;
-
-function showMessage(msg, type = 'error') {
+// =======================
+// Utilidades
+// =======================
+const showMessage = (msg, type = 'error') => {
   messageEl.textContent = msg;
-  messageEl.className = `message show ${type === 'success' ? 'success' : 'error'}`;
+  messageEl.className = `message ${type}`;
   messageEl.style.display = 'block';
-}
+};
 
-function hideMessage() {
+const hideMessage = () => {
   messageEl.style.display = 'none';
-}
+};
 
-function sanitizeInput(input) {
-  // Elimina caracteres problemáticos y espacios al inicio y final
-  return input.replace(/[<>"'`;]/g, '').trim();
-}
-
-function validatePassword(password) {
-  // Al menos 8 caracteres, una mayúscula, una minúscula, un número y sin espacios
-  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[^\s]{8,}$/;
-  return regex.test(password);
-}
-
-function isLocked() {
-  return lockUntil && Date.now() < lockUntil;
-}
-
-function getRemainingLockTimeSeconds() {
-  return Math.ceil((lockUntil - Date.now()) / 1000);
-}
-
-async function verifyToken() {
-  if (!token || typeof token !== 'string' || token.trim() === '') {
-    showMessage('Token no válido o no encontrado en la URL.');
+// =======================
+// Verificar token
+// =======================
+const verificarToken = async () => {
+  if (!token) {
+    showMessage('Token no válido.');
     submitBtn.disabled = true;
-    return false;
+    return;
   }
 
   try {
     const res = await fetch(`${baseUrl}/api/auth/reset-password/${encodeURIComponent(token)}`);
     const data = await res.json();
 
-    if (!res.ok || !data.valido) {
-      showMessage(data.mensaje || 'Este enlace para cambiar la contraseña ha expirado o es inválido.');
+    if (!res.ok) {
+      showMessage(data.mensaje || 'Token inválido o expirado.');
       submitBtn.disabled = true;
-      return false;
     }
-    return true;
-  } catch {
-    showMessage('Error de conexión al verificar el token.');
+  } catch (err) {
+    showMessage('Error al verificar token.');
     submitBtn.disabled = true;
-    return false;
   }
-}
+};
 
-function lockForm() {
-  lockUntil = Date.now() + LOCK_TIME_MS;
-  submitBtn.disabled = true;
-  showMessage(`Demasiados intentos fallidos. Intenta nuevamente en ${LOCK_TIME_MS / 60000} minutos.`);
-}
-
-window.addEventListener('DOMContentLoaded', async () => {
-  await verifyToken();
-});
-
+// =======================
+// Enviar nueva contraseña
+// =======================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-
-  if (isLocked()) {
-    showMessage(`Demasiados intentos fallidos. Intenta de nuevo en ${getRemainingLockTimeSeconds()} segundos.`);
-    return;
-  }
-
   hideMessage();
 
-  const newPasswordRaw = form.newPassword.value;
-  const confirmPasswordRaw = form.confirmPassword.value;
-  const newPassword = sanitizeInput(newPasswordRaw);
-  const confirmPassword = sanitizeInput(confirmPasswordRaw);
+  const password = form.newPassword.value.trim();
+  const confirm = form.confirmPassword.value.trim();
 
-  if (!newPassword) {
-    showMessage('La contraseña es obligatoria.');
+  if (!password || !confirm) {
+    showMessage('Completa todos los campos.');
     return;
   }
-  if (!validatePassword(newPassword)) {
-    showMessage('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número, sin espacios.');
-    return;
-  }
-  if (!confirmPassword) {
-    showMessage('Confirma tu contraseña.');
-    return;
-  }
-  if (newPassword !== confirmPassword) {
+
+  if (password !== confirm) {
     showMessage('Las contraseñas no coinciden.');
     return;
   }
 
   submitBtn.disabled = true;
-  submitBtn.innerHTML = 'Guardando... <span class="spinner"></span>';
+  submitBtn.textContent = 'Guardando...';
 
   try {
     const res = await fetch(`${baseUrl}/api/auth/reset-password/${encodeURIComponent(token)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nuevaPassword: newPassword }),
-      credentials: 'same-origin',
+      body: JSON.stringify({ nuevaPassword: password }),
     });
 
     const data = await res.json();
 
     if (res.ok) {
+      showMessage(data.mensaje || 'Contraseña actualizada.', 'success');
       form.reset();
-      showMessage('Contraseña actualizada correctamente.', 'success');
       modal.classList.add('active');
-      attempts = 0; // Resetear intentos tras éxito
+
+      // Mostrar modal 3 segundos y luego ocultar formulario y modal
+      setTimeout(() => {
+        modal.classList.remove('active');
+        form.style.display = 'none';
+      }, 3000);
     } else {
-      // Manejo errores específicos
-      if (res.status === 400 && data.mensaje?.toLowerCase().includes('token')) {
-        showMessage(data.mensaje || 'Token inválido o expirado.');
-        submitBtn.disabled = true;
-      } else if (res.status === 429) {
-        showMessage('Demasiadas solicitudes. Por favor espera un momento.');
-      } else {
-        attempts++;
-        if (attempts >= MAX_ATTEMPTS) {
-          lockForm();
-        } else {
-          showMessage(data.mensaje || 'Error al actualizar contraseña.');
-        }
-      }
+      showMessage(data.mensaje || 'Error al actualizar la contraseña.');
     }
-  } catch {
-    showMessage('Error de conexión. Intenta nuevamente.');
+  } catch (err) {
+    showMessage('Error de red. Intenta más tarde.');
   } finally {
-    if (!isLocked()) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Guardar nueva contraseña';
-    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Guardar nueva contraseña';
   }
 });
 
-modalCloseBtn.addEventListener('click', () => {
+// =======================
+// Modal
+// =======================
+modalCloseBtn?.addEventListener('click', () => {
   modal.classList.remove('active');
+  form.style.display = 'none'; // También oculta el formulario al cerrar manualmente
 });
 
-// Mostrar/Ocultar contraseña con accesibilidad
-document.querySelectorAll('.toggle-password').forEach(button => {
-  button.addEventListener('click', () => {
-    const input = button.previousElementSibling;
+// =======================
+// Mostrar/Ocultar contraseña
+// =======================
+document.querySelectorAll('.toggle-password').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const input = btn.previousElementSibling;
     if (!input) return;
 
-    const isPassword = input.type === 'password';
-    input.type = isPassword ? 'text' : 'password';
-
-    const eyeOpen = button.querySelector('#eye-open');
-    const eyeClosed = button.querySelector('#eye-closed');
-
-    if (eyeOpen && eyeClosed) {
-      eyeOpen.style.display = isPassword ? 'inline' : 'none';
-      eyeClosed.style.display = isPassword ? 'none' : 'inline';
-    }
-
-    button.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    input.type = input.type === 'password' ? 'text' : 'password';
+    btn.setAttribute('aria-label', input.type === 'password' ? 'Mostrar' : 'Ocultar');
   });
 });
+
+// =======================
+// Init
+// =======================
+window.addEventListener('DOMContentLoaded', verificarToken);
