@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
-const auth = require('../middlewares/authMiddleware');
 
-// Middleware para verificar el token
+// Verifica el token JWT y guarda el usuario en req.usuario
 const verificarToken = (req, res, next) => {
   const tokenHeader = req.header('Authorization');
 
@@ -9,7 +8,6 @@ const verificarToken = (req, res, next) => {
     return res.status(401).json({ mensaje: 'Acceso denegado. No hay token.' });
   }
 
-  // Extraer el token sin el prefijo "Bearer "
   const token = tokenHeader.startsWith('Bearer ') ? tokenHeader.split(' ')[1] : tokenHeader;
 
   try {
@@ -21,12 +19,18 @@ const verificarToken = (req, res, next) => {
   }
 };
 
-// Middleware para verificar el rol de admin
+// Verifica si el usuario es administrador
 const verificarAdmin = (req, res, next) => {
-  if (!req.usuario || req.usuario.rol !== 'admin') {
-    return res.status(403).json({ mensaje: 'Acceso denegado. No eres administrador.' });
+  console.log('Usuario en verificarAdmin:', req.usuario); // 👈 útil para depurar
+
+  if (req.usuario && req.usuario.rol === 'admin') {
+    return next();
+  } else {
+    return res.status(403).json({ mensaje: 'Acceso denegado: no eres administrador' });
   }
-  next();
 };
 
-module.exports = { verificarToken, verificarAdmin };
+module.exports = {
+  verificarToken,
+  verificarAdmin
+};

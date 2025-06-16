@@ -1,10 +1,5 @@
 const generarPlantillaResetPassword = (nombre, token) => {
   const url = `http://20.251.145.196:5000/reset-password.html?token=${token}`;
-  const lockIconBase64 = `data:image/svg+xml;base64,${Buffer.from(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" fill="#BE0C0C">
-      <path d="M12 1a5 5 0 0 0-5 5v4H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 6 0v4H9V6zm3 7a2 2 0 0 1 1 3.732V19a1 1 0 0 1-2 0v-2.268A2 2 0 0 1 12 13z"/>
-    </svg>
-  `).toString('base64')}`;
 
   return `
     <!DOCTYPE html>
@@ -27,7 +22,13 @@ const generarPlantillaResetPassword = (nombre, token) => {
             >
               <tr>
                 <td align="center" style="padding: 32px 24px 16px;">
-                  <img src="${lockIconBase64}" alt="Ícono de seguridad" width="64" height="64" style="display:block; margin-bottom: 16px;" />
+                  <img
+                    src="https://img.icons8.com/ios-filled/100/fa5252/lock--v1.png"
+                    alt="Ícono de seguridad"
+                    width="64"
+                    height="64"
+                    style="display:block; margin-bottom: 16px;"
+                  />
                   <h2 style="font-size: 22px; color: #222222; margin: 16px 0 8px; font-weight: 600;">
                     Hola, ${nombre}
                   </h2>
