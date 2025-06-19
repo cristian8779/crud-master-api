@@ -1,5 +1,6 @@
 const Categoria = require('../models/Categoria');
-const Producto = require('../models/Producto'); // Importa el modelo de Producto para verificar relaciones
+const Producto = require('../models/Producto'); // Verificar relaciones
+const cloudinary = require('../config/cloudinary'); // Para manejar imágenes
 
 // Crear una categoría (Solo Admin)
 const crearCategoria = async (req, res) => {
@@ -20,10 +21,20 @@ const crearCategoria = async (req, res) => {
       return res.status(400).json({ mensaje: 'Ya existe una categoría con ese nombre' });
     }
 
-    const nuevaCategoria = new Categoria({ nombre, descripcion });
+    const imagenUrl = req.file?.path || null;
+
+    const nuevaCategoria = new Categoria({
+      nombre,
+      descripcion,
+      imagen: imagenUrl
+    });
+
     await nuevaCategoria.save();
 
-    res.status(201).json({ mensaje: 'Categoría creada correctamente', categoria: nuevaCategoria });
+    res.status(201).json({
+      mensaje: 'Categoría creada correctamente',
+      categoria: nuevaCategoria
+    });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al crear categoría', error: error.message });
   }
@@ -39,7 +50,7 @@ const obtenerCategorias = async (req, res) => {
   }
 };
 
-// Actualizar una categoría (Solo Admin)
+// Actualizar una categoría (incluye imagen)
 const actualizarCategoria = async (req, res) => {
   try {
     if (req.usuario.rol !== 'admin') {
@@ -49,13 +60,28 @@ const actualizarCategoria = async (req, res) => {
     const { id } = req.params;
     const { nombre, descripcion } = req.body;
 
-    const categoriaActualizada = await Categoria.findByIdAndUpdate(id, { nombre, descripcion }, { new: true });
-
-    if (!categoriaActualizada) {
+    const categoria = await Categoria.findById(id);
+    if (!categoria) {
       return res.status(404).json({ mensaje: 'Categoría no encontrada' });
     }
 
-    res.json({ mensaje: 'Categoría actualizada correctamente', categoria: categoriaActualizada });
+    // Si se subió una nueva imagen, eliminar la anterior en Cloudinary
+    let nuevaImagen = categoria.imagen;
+    if (req.file) {
+      if (categoria.imagen) {
+        const publicId = categoria.imagen.split('/').pop().split('.')[0]; // Obtener public_id
+        await cloudinary.uploader.destroy(`productos/${publicId}`);
+      }
+      nuevaImagen = req.file.path;
+    }
+
+    categoria.nombre = nombre || categoria.nombre;
+    categoria.descripcion = descripcion || categoria.descripcion;
+    categoria.imagen = nuevaImagen;
+
+    await categoria.save();
+
+    res.json({ mensaje: 'Categoría actualizada correctamente', categoria });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al actualizar categoría', error: error.message });
   }
@@ -70,17 +96,26 @@ const eliminarCategoria = async (req, res) => {
 
     const { id } = req.params;
 
-    // Verificar si algún producto está usando esta categoría
+    // Verificar si está en uso
     const productosRelacionados = await Producto.find({ categoria: id });
     if (productosRelacionados.length > 0) {
-      return res.status(400).json({ mensaje: 'No se puede eliminar la categoría porque está en uso por productos' });
+      return res.status(400).json({
+        mensaje: 'No se puede eliminar la categoría porque está en uso por productos'
+      });
     }
 
-    const categoriaEliminada = await Categoria.findByIdAndDelete(id);
-
-    if (!categoriaEliminada) {
+    const categoria = await Categoria.findById(id);
+    if (!categoria) {
       return res.status(404).json({ mensaje: 'Categoría no encontrada' });
     }
+
+    // Eliminar imagen de Cloudinary si existe
+    if (categoria.imagen) {
+      const publicId = categoria.imagen.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(`productos/${publicId}`);
+    }
+
+    await Categoria.findByIdAndDelete(id);
 
     res.json({ mensaje: 'Categoría eliminada correctamente' });
   } catch (error) {

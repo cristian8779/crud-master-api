@@ -10,8 +10,9 @@ const verificarToken = (req, res, next) => {
   try {
     const tokenSinBearer = token.replace('Bearer ', '');
     const verificado = jwt.verify(tokenSinBearer, process.env.JWT_SECRET);
-    console.log('Token verificado:', verificado);  // Debugging
-    req.user = verificado;  // Cambié 'req.usuario' a 'req.user'
+    console.log('Token verificado:', verificado);
+    
+    req.usuario = verificado; // ✅ Asegúrate de usar 'usuario' como en esAdmin.js
     next();
   } catch (err) {
     res.status(400).json({ mensaje: 'Token inválido' });

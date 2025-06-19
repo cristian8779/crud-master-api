@@ -12,7 +12,7 @@ const ventaRoutes = require('./routes/ventaRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
 const paymentRoutes = require('./routes/payment.routes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
-
+const resenaRoutes = require('./routes/resenas'); // Rutas de reseñas
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -31,7 +31,7 @@ app.use('/api/ventas', ventaRoutes);
 app.use('/api/carrito', carritoRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/favoritos', favoritoRoutes);
-
+app.use('/api/resenas', resenaRoutes);
 // Ruta principal
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
