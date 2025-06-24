@@ -4,40 +4,46 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/database');
 
-// Importar rutas
-const usuarioRoutes = require('./routes/usuarioRoutes');
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// 📦 Importar rutas
+const authRoutes = require('./routes/authRoutes');             // Registro y login
+const usuarioRoutes = require('./routes/usuarioRoutes');       // Gestión admin de usuarios
+const perfilRoutes = require('./routes/perfilRoutes');         // Perfil de usuario autenticado
+const resetPasswordRoutes = require('./routes/resetPasswordRoutes'); // Restablecer contraseña
 const productoRoutes = require('./routes/productoRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const ventaRoutes = require('./routes/ventaRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
-const paymentRoutes = require('./routes/payment.routes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
-const resenaRoutes = require('./routes/resenas'); // Rutas de reseñas
-const app = express();
-const PORT = process.env.PORT || 5000;
+const resenaRoutes = require('./routes/resenas');              // Reseñas de productos
 
-// Middleware
+// 🛡️ Middlewares
 app.use(express.json());
 app.use(cors());
 
-// 🔧 Servir archivo HTML estático desde carpeta "public"
+// 🗂️ Servir archivos estáticos (por ejemplo, imágenes o frontend)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rutas API
-app.use('/api/auth', usuarioRoutes);
+// 🔌 Montar rutas con prefijo /api
+app.use('/api', authRoutes);
+app.use('/api', usuarioRoutes);
+app.use('/api', perfilRoutes);
+app.use('/api', resetPasswordRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/carrito', carritoRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 app.use('/api/resenas', resenaRoutes);
-// Ruta principal
+
+// Ruta base
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
 });
 
-// Conectar a MongoDB y luego iniciar el servidor
+// 🧠 Conectar a base de datos y lanzar servidor
 const startServer = async () => {
   try {
     await connectDB();

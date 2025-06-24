@@ -1,62 +1,19 @@
-const express = require('express');
-
+// routes/usuarioRoutes.js
+const express = require("express");
 const {
-  crearUsuario,
-  loginUsuario,
   obtenerUsuarios,
   actualizarUsuario,
-  eliminarUsuario,
-  obtenerPerfil,
-  actualizarImagenPerfil,
-  eliminarImagenPerfil
-} = require('../controllers/usuarioController');
+  eliminarUsuario
+} = require("../controllers/usuarioController");
 
-const {
-  enviarResetPassword,
-  resetearPassword,
-  verificarTokenResetPassword // ✅ NUEVA función
-} = require('../controllers/resetPasswordController');
-
-const { verificarToken, verificarAdmin } = require('../middlewares/authMiddleware');
-const uploadUsuario = require('../middlewares/uploadUsuario'); // Multer configurado para usuarios
+const { verificarToken, verificarAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-// Crear usuario
-router.post('/usuarios', crearUsuario);
-
-// Login
-router.post('/login', loginUsuario);
-
-// Obtener todos los usuarios (solo admin)
-router.get('/usuarios', verificarToken, verificarAdmin, obtenerUsuarios);
-
-// Actualizar usuario (solo admin)
-router.put('/usuarios/:id', verificarToken, verificarAdmin, actualizarUsuario);
-
-// Eliminar usuario (solo admin o el propio usuario)
-router.delete('/usuarios/:id', verificarToken, eliminarUsuario);
-
-// Obtener perfil del usuario autenticado
-router.get('/perfil', verificarToken, obtenerPerfil);
-
-// Actualizar imagen de perfil
-router.put('/perfil/imagen', verificarToken, uploadUsuario.single('imagen'), actualizarImagenPerfil);
-
-// Eliminar imagen de perfil
-router.delete('/perfil/imagen', verificarToken, eliminarImagenPerfil);
-
-// ----------------------
-// Recuperación de contraseña
-// ----------------------
-
-// Solicitar token para restablecer contraseña
-router.post('/forgot-password', enviarResetPassword);
-
-// Verificar validez del token antes de permitir cambio de contraseña
-router.get('/reset-password/:token', verificarTokenResetPassword); // ✅ NUEVA ruta
-
-// Restablecer contraseña con token
-router.post('/reset-password/:token', resetearPassword);
+// 🔒 Gestión de usuarios (solo admins pueden ver y actualizar cualquier usuario)
+// Eliminar usuario también puede ser hecho por el mismo usuario (validación en el controlador)
+router.get("/usuarios", verificarToken, verificarAdmin, obtenerUsuarios);
+router.put("/usuarios/:id", verificarToken, verificarAdmin, actualizarUsuario);
+router.delete("/usuarios/:id", verificarToken, eliminarUsuario);
 
 module.exports = router;

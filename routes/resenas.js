@@ -8,7 +8,7 @@ const {
   eliminarResena
 } = require('../controllers/resenaController');
 
-const { verificarToken } = require('../controllers/usuarioController');
+const { verificarToken } = require('../controllers/authController');
 
 // Crear reseña para un producto
 router.post('/producto/:productoId', verificarToken, crearResena);

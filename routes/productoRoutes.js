@@ -5,7 +5,7 @@ const {
   actualizarProducto, 
   eliminarProducto 
 } = require('../controllers/productoController');
-const { verificarToken } = require('../controllers/usuarioController');
+const { verificarToken } = require('../controllers/authController'); // ← CORREGIDO
 const upload = require('../middlewares/upload');
 
 const router = express.Router();
@@ -20,9 +20,9 @@ router.post('/upload', verificarToken, upload.single('imagen'), (req, res) => {
 });
 
 // Rutas para productos
-router.post('/', verificarToken, upload.single('imagen'), crearProducto);  // Solo Admin
-router.get('/', obtenerProductos);  // Público
-router.put('/:id', verificarToken, upload.single('imagen'), actualizarProducto);  // Solo Admin
-router.delete('/:id', verificarToken, eliminarProducto);  // Solo Admin
+router.post('/', verificarToken, upload.single('imagen'), crearProducto);
+router.get('/', obtenerProductos);
+router.put('/:id', verificarToken, upload.single('imagen'), actualizarProducto);
+router.delete('/:id', verificarToken, eliminarProducto);
 
 module.exports = router;
