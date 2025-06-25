@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Usuario = require("../models/Usuario");
+const Credenciales = require("../models/Credenciales");
 const generarPlantillaBienvenida = require("../utils/plantillaBienvenida");
 const resend = require("../config/resend");
 
@@ -29,21 +30,25 @@ const crearUsuario = async (req, res) => {
       });
     }
 
-    const usuarioExistente = await Usuario.findOne({ email });
-    if (usuarioExistente) {
+    const credencialExistente = await Credenciales.findOne({ email });
+    if (credencialExistente) {
       return res.status(400).json({ mensaje: "El usuario ya existe" });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const nuevoUsuario = new Usuario({
-      nombre: nombre.trim(),
+    const nuevaCredencial = new Credenciales({
       email,
       password: passwordHash,
-      rol: rol || "usuario",
+      rol: rol || "usuario"
     });
+    await nuevaCredencial.save();
 
+    const nuevoUsuario = new Usuario({
+      nombre: nombre.trim(),
+      credenciales: nuevaCredencial._id
+    });
     await nuevoUsuario.save();
 
     await resend.emails.send({
@@ -54,7 +59,7 @@ const crearUsuario = async (req, res) => {
     });
 
     const token = jwt.sign(
-      { id: nuevoUsuario._id, rol: nuevoUsuario.rol },
+      { id: nuevoUsuario._id, rol: nuevaCredencial.rol },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -63,8 +68,8 @@ const crearUsuario = async (req, res) => {
       mensaje: "Usuario creado",
       usuario: {
         nombre: nuevoUsuario.nombre,
-        email: nuevoUsuario.email,
-        rol: nuevoUsuario.rol,
+        email: nuevaCredencial.email,
+        rol: nuevaCredencial.rol,
       },
       token,
     });
@@ -83,21 +88,23 @@ const loginUsuario = async (req, res) => {
     }
 
     const emailLimpio = email.trim().toLowerCase();
-    const usuario = await Usuario.findOne({ email: emailLimpio });
+    const credencial = await Credenciales.findOne({ email: emailLimpio });
 
-    if (!usuario) {
+    if (!credencial) {
       return res.status(400).json({ mensaje: "Usuario no encontrado" });
     }
 
-    const esPasswordValido = await bcrypt.compare(password, usuario.password);
+    const esPasswordValido = await bcrypt.compare(password, credencial.password);
     if (!esPasswordValido) {
       return res.status(400).json({ mensaje: "Contraseña incorrecta" });
     }
 
+    const usuario = await Usuario.findOne({ credenciales: credencial._id });
+
     const token = jwt.sign(
-      { id: usuario._id, rol: usuario.rol },
+      { id: usuario._id, rol: credencial.rol },
       process.env.JWT_SECRET,
-      { expiresIn: usuario.rol === "admin" ? "30d" : "1h" }
+      { expiresIn: credencial.rol === "admin" ? "30d" : "1h" }
     );
 
     res.json({
@@ -105,8 +112,8 @@ const loginUsuario = async (req, res) => {
       token,
       usuario: {
         nombre: usuario.nombre,
-        email: usuario.email,
-        rol: usuario.rol,
+        email: credencial.email,
+        rol: credencial.rol,
       },
     });
   } catch (error) {
@@ -114,7 +121,7 @@ const loginUsuario = async (req, res) => {
   }
 };
 
-// Verificar token (middleware)
+// Middleware para verificar token
 const verificarToken = (req, res, next) => {
   const token = req.header("Authorization")?.split(" ")[1];
 
@@ -134,5 +141,5 @@ const verificarToken = (req, res, next) => {
 module.exports = {
   crearUsuario,
   loginUsuario,
-  verificarToken, 
+  verificarToken,
 };

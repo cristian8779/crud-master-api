@@ -1,4 +1,7 @@
 const Usuario = require("../models/Usuario");
+const Credenciales = require("../models/Credenciales");
+const Recuperacion = require("../models/Recuperacion");
+
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { Resend } = require("resend");
@@ -21,21 +24,32 @@ const enviarResetPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "Correo electrónico inválido" });
     }
 
-    const usuario = await Usuario.findOne({ email: email.trim().toLowerCase() });
-    if (!usuario) {
+    const credencial = await Credenciales.findOne({ email: email.trim().toLowerCase() });
+    if (!credencial) {
       return res.status(404).json({ mensaje: "Correo no encontrado" });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiracion = Date.now() + 10 * 60 * 1000; // 10 minutos
+    const usuario = await Usuario.findOne({ credenciales: credencial._id }).populate("recuperacion");
 
-    usuario.resetToken = token;
-    usuario.resetTokenExpira = expiracion;
-    await usuario.save();
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiracion = Date.now() + 10 * 60 * 1000;
+
+    let recuperacion = usuario.recuperacion;
+
+    if (!recuperacion) {
+      recuperacion = new Recuperacion();
+      await recuperacion.save();
+      usuario.recuperacion = recuperacion._id;
+      await usuario.save();
+    }
+
+    recuperacion.resetToken = token;
+    recuperacion.resetTokenExpira = expiracion;
+    await recuperacion.save();
 
     await resend.emails.send({
       from: "soporte@soportee.store",
-      to: [usuario.email],
+      to: [credencial.email],
       subject: "Restablecer contraseña",
       html: generarPlantillaResetPassword(usuario.nombre || "usuario", token),
     });
@@ -52,12 +66,12 @@ const verificarTokenResetPassword = async (req, res) => {
   try {
     const { token } = req.params;
 
-    const usuario = await Usuario.findOne({
+    const recuperacion = await Recuperacion.findOne({
       resetToken: token,
       resetTokenExpira: { $gt: Date.now() },
     });
 
-    if (!usuario) {
+    if (!recuperacion) {
       return res.status(400).json({ mensaje: "Token inválido o expirado" });
     }
 
@@ -78,13 +92,19 @@ const resetearPassword = async (req, res) => {
       return res.status(400).json({ mensaje: "La nueva contraseña es obligatoria" });
     }
 
-    const usuario = await Usuario.findOne({
+    const recuperacion = await Recuperacion.findOne({
       resetToken: token,
       resetTokenExpira: { $gt: Date.now() },
     });
 
-    if (!usuario) {
+    if (!recuperacion) {
       return res.status(400).json({ mensaje: "Token inválido o expirado" });
+    }
+
+    const usuario = await Usuario.findOne({ recuperacion: recuperacion._id }).populate("credenciales");
+
+    if (!usuario || !usuario.credenciales) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -95,12 +115,12 @@ const resetearPassword = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    usuario.password = await bcrypt.hash(nuevaPassword, salt);
+    usuario.credenciales.password = await bcrypt.hash(nuevaPassword, salt);
+    await usuario.credenciales.save();
 
-    usuario.resetToken = undefined;
-    usuario.resetTokenExpira = undefined;
-
-    await usuario.save();
+    recuperacion.resetToken = undefined;
+    recuperacion.resetTokenExpira = undefined;
+    await recuperacion.save();
 
     return res.json({ mensaje: "Contraseña actualizada correctamente" });
   } catch (error) {

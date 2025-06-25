@@ -6,18 +6,6 @@ const UsuarioSchema = new mongoose.Schema({
     required: [true, "El nombre es obligatorio"],
     trim: true
   },
-  email: {
-    type: String,
-    required: [true, "El correo es obligatorio"],
-    unique: true,
-    trim: true,
-    lowercase: true,
-    match: [/.+\@.+\..+/, "Por favor, ingrese un correo válido"]
-  },
-  password: {
-    type: String,
-    required: [true, "La contraseña es obligatoria"]
-  },
   direccion: {
     type: String,
     default: ""
@@ -34,20 +22,15 @@ const UsuarioSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
-  rol: {
-    type: String,
-    enum: ['usuario', 'admin'],
-    default: 'usuario'
+  credenciales: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Credenciales',
+    required: true
   },
-
-  // 👉 Campos para recuperación de contraseña
-  resetToken: {
-    type: String
-  },
-  resetTokenExpira: {
-    type: Date
+  recuperacion: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Recuperacion'
   }
-
 }, { timestamps: true });
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);

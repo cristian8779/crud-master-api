@@ -4,7 +4,10 @@ const cloudinary = require("../config/cloudinary");
 // Obtener perfil
 const obtenerPerfil = async (req, res) => {
   try {
-    const usuario = await Usuario.findById(req.usuario.id, "-password");
+    const usuario = await Usuario.findById(req.usuario.id)
+      .populate("credenciales", "email rol -_id") // extrae email y rol
+      .select("-__v");
+
     if (!usuario) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
@@ -19,6 +22,7 @@ const obtenerPerfil = async (req, res) => {
 const actualizarImagenPerfil = async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.usuario.id);
+
     if (!usuario) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
@@ -27,10 +31,12 @@ const actualizarImagenPerfil = async (req, res) => {
       return res.status(400).json({ mensaje: "No se proporcionó ninguna imagen válida" });
     }
 
+    // Eliminar imagen anterior de Cloudinary si existe
     if (usuario.cloudinaryId) {
       await cloudinary.uploader.destroy(usuario.cloudinaryId);
     }
 
+    // Subir nueva imagen
     usuario.imagenPerfil = req.file.path;
     usuario.cloudinaryId = req.file.filename;
 
@@ -58,13 +64,12 @@ const eliminarImagenPerfil = async (req, res) => {
 
     usuario.imagenPerfil = "";
     usuario.cloudinaryId = "";
+
     await usuario.save();
 
-    const { password, ...usuarioSinPassword } = usuario.toObject();
-
-    res.json({ mensaje: "Imagen eliminada correctamente", usuario: usuarioSinPassword });
+    res.json({ mensaje: "Imagen eliminada correctamente" });
   } catch (error) {
-    res.status(500).json({ error: "Error al eliminar la imagen de perfil" });
+    res.status(500).json({ error: "Error al eliminar la imagen de perfil", detalles: error.message });
   }
 };
 

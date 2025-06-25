@@ -1,16 +1,22 @@
 const mongoose = require("mongoose");
 const Usuario = require("../models/Usuario");
+const Credenciales = require("../models/Credenciales");
 const Historial = require("../models/Historial");
 const bcrypt = require("bcryptjs");
 
 // Obtener todos los usuarios (solo admin)
 const obtenerUsuarios = async (req, res) => {
   try {
-    if (req.usuario.rol !== "admin") {
+    const usuarioAuth = await Usuario.findById(req.usuario.id).populate("credenciales");
+
+    if (!usuarioAuth || usuarioAuth.credenciales.rol !== "admin") {
       return res.status(403).json({ mensaje: "No tienes permisos para ver esta información" });
     }
 
-    const usuarios = await Usuario.find({}, "-password");
+    const usuarios = await Usuario.find()
+      .populate("credenciales", "email rol")
+      .select("-__v");
+
     res.json({ usuarios });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener usuarios", error: error.message });
@@ -23,10 +29,12 @@ const actualizarUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, email, password, rol } = req.body;
 
-    let usuario = await Usuario.findById(id);
+    const usuario = await Usuario.findById(id).populate("credenciales");
     if (!usuario) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
+
+    const credenciales = await Credenciales.findById(usuario.credenciales._id);
 
     if (password && !/^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[a-z]).{8,}$/.test(password)) {
       return res.status(400).json({
@@ -40,25 +48,38 @@ const actualizarUsuario = async (req, res) => {
 
     if (email) {
       const emailLimpio = email.trim().toLowerCase();
-      const emailExistente = await Usuario.findOne({ email: emailLimpio });
-      if (emailExistente && emailExistente._id.toString() !== id) {
+      const emailExistente = await Credenciales.findOne({ email: emailLimpio });
+      if (emailExistente && emailExistente._id.toString() !== credenciales._id.toString()) {
         return res.status(400).json({ mensaje: "El email ya está registrado" });
       }
-      usuario.email = emailLimpio;
+      credenciales.email = emailLimpio;
     }
 
     if (password) {
       const salt = await bcrypt.genSalt(10);
-      usuario.password = await bcrypt.hash(password, salt);
+      credenciales.password = await bcrypt.hash(password, salt);
     }
 
-    usuario.nombre = nombre ? nombre.trim() : usuario.nombre;
-    usuario.rol = rol || usuario.rol;
+    if (rol) {
+      credenciales.rol = rol;
+    }
 
-    await usuario.save();
+    await credenciales.save();
 
-    const { password: _, ...usuarioSinPassword } = usuario.toObject();
-    res.json({ mensaje: "Usuario actualizado", usuario: usuarioSinPassword });
+    if (nombre) {
+      usuario.nombre = nombre.trim();
+      await usuario.save();
+    }
+
+    res.json({
+      mensaje: "Usuario actualizado correctamente",
+      usuario: {
+        id: usuario._id,
+        nombre: usuario.nombre,
+        email: credenciales.email,
+        rol: credenciales.rol,
+      },
+    });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar usuario", error: error.message });
   }
@@ -68,22 +89,24 @@ const actualizarUsuario = async (req, res) => {
 const eliminarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const usuarioSolicitante = req.usuario;
+    const usuarioSolicitante = await Usuario.findById(req.usuario.id).populate("credenciales");
+    const usuarioAEliminar = await Usuario.findById(id).populate("credenciales");
 
-    const usuarioAEliminar = await Usuario.findById(id);
     if (!usuarioAEliminar) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
 
-    if (usuarioSolicitante.rol !== "admin" && usuarioSolicitante.id !== id.toString()) {
+    const mismoUsuario = usuarioSolicitante._id.toString() === id.toString();
+
+    if (usuarioSolicitante.credenciales.rol !== "admin" && !mismoUsuario) {
       return res.status(403).json({ mensaje: "No puedes eliminar a otro usuario." });
     }
 
-    const admins = await Usuario.countDocuments({ rol: "admin" });
+    const totalAdmins = await Credenciales.countDocuments({ rol: "admin" });
     if (
-      usuarioSolicitante.rol === "admin" &&
-      usuarioSolicitante.id === id.toString() &&
-      admins <= 1
+      usuarioSolicitante.credenciales.rol === "admin" &&
+      mismoUsuario &&
+      totalAdmins <= 1
     ) {
       return res.status(403).json({
         mensaje: "No puedes eliminarte sin antes transferir el rol a otro usuario.",
@@ -93,10 +116,11 @@ const eliminarUsuario = async (req, res) => {
     await Historial.create({
       accion: "Eliminación de usuario",
       usuarioAfectado: new mongoose.Types.ObjectId(id),
-      realizadoPor: new mongoose.Types.ObjectId(usuarioSolicitante.id),
+      realizadoPor: new mongoose.Types.ObjectId(usuarioSolicitante._id),
       fecha: new Date(),
     });
 
+    await Credenciales.findByIdAndDelete(usuarioAEliminar.credenciales._id);
     await Usuario.findByIdAndDelete(id);
 
     res.json({ mensaje: "Usuario eliminado correctamente y registrado en el historial." });
