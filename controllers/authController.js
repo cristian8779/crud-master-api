@@ -30,6 +30,16 @@ const crearUsuario = async (req, res) => {
       });
     }
 
+    // 🚨 Permitir solo el primer superAdmin
+    if (rol === "superAdmin") {
+      const yaExisteSuperAdmin = await Credenciales.findOne({ rol: "superAdmin" });
+      if (yaExisteSuperAdmin) {
+        return res.status(403).json({
+          mensaje: "Ya existe un superAdmin. Usa la invitación de cambio de rol para crear otro.",
+        });
+      }
+    }
+
     const credencialExistente = await Credenciales.findOne({ email });
     if (credencialExistente) {
       return res.status(400).json({ mensaje: "El usuario ya existe" });

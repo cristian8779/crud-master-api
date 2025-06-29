@@ -1,0 +1,109 @@
+const jwt = require("jsonwebtoken");
+const Credenciales = require("../models/Credenciales");
+const RolRequest = require("../models/RolRequest");
+const generarPlantillaRol = require("../utils/plantillaCambioRol");
+const resend = require("../config/resend");
+
+// ✅ Enviar invitación de cambio de rol (solo SuperAdmin)
+const invitarCambioRol = async (req, res) => {
+  const { email, nuevoRol } = req.body;
+
+  if (!email || !nuevoRol) {
+    return res.status(400).json({ mensaje: "Debes proporcionar un email válido y un nuevo rol." });
+  }
+
+  // Validación de rol permitido
+  const rolesPermitidos = ["admin", "superAdmin"];
+  if (!rolesPermitidos.includes(nuevoRol)) {
+    return res.status(400).json({ mensaje: "El rol especificado no es válido." });
+  }
+
+  if (req.usuario.rol !== "superAdmin") {
+    return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede enviar invitaciones de rol." });
+  }
+
+  const credencial = await Credenciales.findOne({ email });
+  if (!credencial) {
+    return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
+  }
+
+  // Verificar si ya hay una invitación pendiente
+  const yaExiste = await RolRequest.findOne({ email, estado: "pendiente" });
+  if (yaExiste) {
+    return res.status(409).json({
+      mensaje: "Ya existe una invitación pendiente para este correo. Espera a que expire o sea confirmada.",
+    });
+  }
+
+  const token = jwt.sign({ email, nuevoRol }, process.env.JWT_SECRET, { expiresIn: "5m" });
+  const expiracion = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+
+  const solicitud = new RolRequest({
+    email,
+    nuevoRol,
+    token,
+    expiracion,
+    estado: "pendiente",
+  });
+
+  await solicitud.save();
+
+  const link = `${process.env.FRONTEND_URL}/confirmar-rol?token=${token}`;
+
+  await resend.emails.send({
+    from: "Soporte <soporte@soportee.store>",
+    to: email,
+    subject: `Cambio de rol solicitado: ${nuevoRol}`,
+    html: generarPlantillaRol(credencial.nombre || email, nuevoRol, token),
+  });
+
+  console.log(`📨 Invitación enviada a ${email} para cambiar a rol ${nuevoRol}`);
+
+  return res.status(200).json({
+    mensaje: `La invitación ha sido enviada correctamente al correo ${email}. Tendrá una validez de 5 minutos.`,
+    ...(process.env.NODE_ENV !== "production" && { link }),
+  });
+};
+
+// ✅ Confirmar invitación desde el correo
+const confirmarInvitacionRol = async (req, res) => {
+  const token = req.body.token || req.query.token;
+
+  if (!token) {
+    return res.status(400).send("Token requerido para confirmar el cambio de rol.");
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const solicitud = await RolRequest.findOne({ token });
+
+    if (!solicitud) {
+      return res.status(404).send("No se encontró ninguna invitación con ese token.");
+    }
+
+    if (solicitud.estado === "confirmado") {
+      return res.status(400).send("Esta invitación ya fue confirmada anteriormente.");
+    }
+
+    if (solicitud.expiracion < new Date()) {
+      solicitud.estado = "expirado";
+      await solicitud.save();
+      return res.status(400).send("El enlace ha expirado. Solicita una nueva invitación si es necesario.");
+    }
+
+    await Credenciales.updateOne({ email: solicitud.email }, { rol: solicitud.nuevoRol });
+    solicitud.estado = "confirmado";
+    await solicitud.save();
+
+    return res.status(200).send(
+      `<h2>✅ Rol actualizado con éxito a <strong>${solicitud.nuevoRol}</strong>. Ya puedes iniciar sesión con tus nuevos permisos.</h2>`
+    );
+  } catch (error) {
+    return res.status(401).send("El token proporcionado es inválido o ha sido alterado.");
+  }
+};
+
+module.exports = {
+  invitarCambioRol,
+  confirmarInvitacionRol,
+};

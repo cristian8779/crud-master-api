@@ -20,6 +20,8 @@ const favoritoRoutes = require('./routes/favoritoRoutes');
 const resenaRoutes = require('./routes/resenas');              // Reseñas de productos
 const historialRoutes = require('./routes/historial');        // Historial de productos vistos
 const loginRoutes = require('./routes/login.Routes');        // Login con Google
+const rolRoutes = require('./routes/rolRoutes');            // Rutas de cambio de rol
+const adminRoutes = require('./routes/adminRoutes');          // Rutas de administración
 
 // 🛡️ Middlewares
 app.use(express.json());
@@ -41,6 +43,8 @@ app.use('/api/favoritos', favoritoRoutes);
 app.use('/api/resenas', resenaRoutes);
 app.use('/api/historial', require('./routes/historial')); // Historial de productos vistos
 app.use('/api', loginRoutes); // Login con Google
+app.use('/api/rol', require('./routes/rolRoutes')); // Rutas de cambio de rol
+app.use('/api/admin', require('./routes/adminRoutes')); // Rutas de administración
 // Ruta base
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');

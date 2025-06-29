@@ -15,7 +15,7 @@ const CredencialesSchema = new mongoose.Schema({
   },
   rol: {
     type: String,
-    enum: ['usuario', 'admin'],
+    enum: ["usuario", "admin", "superAdmin"],
     default: 'usuario'
   }
 }, { timestamps: true });
