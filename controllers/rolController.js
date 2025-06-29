@@ -12,7 +12,6 @@ const invitarCambioRol = async (req, res) => {
     return res.status(400).json({ mensaje: "Debes proporcionar un email válido y un nuevo rol." });
   }
 
-  // Validación de rol permitido
   const rolesPermitidos = ["admin", "superAdmin"];
   if (!rolesPermitidos.includes(nuevoRol)) {
     return res.status(400).json({ mensaje: "El rol especificado no es válido." });
@@ -27,7 +26,6 @@ const invitarCambioRol = async (req, res) => {
     return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
   }
 
-  // Verificar si ya hay una invitación pendiente
   const yaExiste = await RolRequest.findOne({ email, estado: "pendiente" });
   if (yaExiste) {
     return res.status(409).json({
@@ -54,7 +52,7 @@ const invitarCambioRol = async (req, res) => {
     from: "Soporte <soporte@soportee.store>",
     to: email,
     subject: `Cambio de rol solicitado: ${nuevoRol}`,
-    html: generarPlantillaRol(credencial.nombre || email, nuevoRol, token),
+    html: generarPlantillaRol(credencial.nombre || email, nuevoRol, link),
   });
 
   console.log(`📨 Invitación enviada a ${email} para cambiar a rol ${nuevoRol}`);
@@ -95,15 +93,44 @@ const confirmarInvitacionRol = async (req, res) => {
     solicitud.estado = "confirmado";
     await solicitud.save();
 
-    return res.status(200).send(
-      `<h2>✅ Rol actualizado con éxito a <strong>${solicitud.nuevoRol}</strong>. Ya puedes iniciar sesión con tus nuevos permisos.</h2>`
-    );
+    return res.redirect(`${process.env.FRONTEND_URL}/rol-confirmado?rol=${solicitud.nuevoRol}`);
   } catch (error) {
     return res.status(401).send("El token proporcionado es inválido o ha sido alterado.");
+  }
+};
+
+// ✅ Ver todas las invitaciones (ley de visibilidad del sistema)
+const listarInvitacionesRol = async (req, res) => {
+  if (req.usuario.rol !== "superAdmin") {
+    return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede ver las invitaciones." });
+  }
+
+  try {
+    const ahora = new Date();
+    await RolRequest.updateMany(
+      { estado: "pendiente", expiracion: { $lt: ahora } },
+      { $set: { estado: "expirado" } }
+    );
+
+    const solicitudes = await RolRequest.find().sort({ createdAt: -1 });
+
+    const resultado = solicitudes.map((s) => ({
+      email: s.email,
+      nuevoRol: s.nuevoRol,
+      estado: s.estado,
+      expiracion: s.expiracion,
+      fechaSolicitud: s.createdAt,
+    }));
+
+    return res.status(200).json({ invitaciones: resultado });
+  } catch (error) {
+    console.error("Error al listar invitaciones:", error);
+    return res.status(500).json({ mensaje: "Error al obtener las invitaciones." });
   }
 };
 
 module.exports = {
   invitarCambioRol,
   confirmarInvitacionRol,
+  listarInvitacionesRol,
 };
