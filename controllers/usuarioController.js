@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const Usuario = require("../models/Usuario");
 const Credenciales = require("../models/Credenciales");
-const Historial = require("../models/Historial");
 const bcrypt = require("bcryptjs");
 
 // Obtener todos los usuarios (solo admin)
@@ -85,7 +84,7 @@ const actualizarUsuario = async (req, res) => {
   }
 };
 
-// Eliminar usuario
+// Eliminar usuario (sin guardar en historial)
 const eliminarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
@@ -113,17 +112,10 @@ const eliminarUsuario = async (req, res) => {
       });
     }
 
-    await Historial.create({
-      accion: "Eliminación de usuario",
-      usuarioAfectado: new mongoose.Types.ObjectId(id),
-      realizadoPor: new mongoose.Types.ObjectId(usuarioSolicitante._id),
-      fecha: new Date(),
-    });
-
     await Credenciales.findByIdAndDelete(usuarioAEliminar.credenciales._id);
     await Usuario.findByIdAndDelete(id);
 
-    res.json({ mensaje: "Usuario eliminado correctamente y registrado en el historial." });
+    res.json({ mensaje: "Usuario eliminado correctamente." });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al eliminar usuario", error: error.message });
   }

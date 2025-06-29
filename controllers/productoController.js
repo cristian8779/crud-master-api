@@ -1,6 +1,7 @@
 const Producto = require('../models/Producto');
 const Categoria = require('../models/Categoria');
 const cloudinary = require('../config/cloudinary');
+const Historial = require('../models/Historial'); // 👈 Importamos historial
 
 // Crear un producto (Solo Admin)
 const crearProducto = async (req, res) => {
@@ -53,7 +54,7 @@ const crearProducto = async (req, res) => {
 
     await nuevoProducto.save();
 
-    res.status(201).json({ mensaje: 'Producto agregado', producto: nuevoProducto });
+    res.status(201).json({ mensaje: 'Producto agregado correctamente', producto: nuevoProducto });
   } catch (error) {
     console.error("Error en crearProducto:", error);
     res.status(500).json({ mensaje: 'Error al agregar producto', error: error.message });
@@ -71,12 +72,23 @@ const obtenerProductos = async (req, res) => {
   }
 };
 
-// Obtener producto por ID
+// Obtener producto por ID + registrar en historial
 const obtenerProductoPorId = async (req, res) => {
   try {
     const { id } = req.params;
+    const usuarioId = req.usuario?._id;
+
     const producto = await Producto.findById(id).populate('categoria', 'nombre');
     if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
+
+    // 👇 Agregar a historial si hay usuario autenticado
+    if (usuarioId) {
+      await Historial.findOneAndUpdate(
+        { usuario: usuarioId, producto: id },
+        { fecha: Date.now() },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
 
     res.json({ producto });
   } catch (error) {
@@ -131,7 +143,7 @@ const actualizarProducto = async (req, res) => {
 
     producto = await Producto.findByIdAndUpdate(id, actualizaciones, { new: true });
 
-    res.json({ mensaje: 'Producto actualizado', producto });
+    res.json({ mensaje: 'Producto actualizado correctamente', producto });
   } catch (error) {
     console.error("Error en actualizarProducto:", error);
     res.status(500).json({ mensaje: 'Error al actualizar producto', error: error.message });
@@ -174,7 +186,7 @@ const cambiarEstadoProducto = async (req, res) => {
     const producto = await Producto.findByIdAndUpdate(id, { estado }, { new: true });
     if (!producto) return res.status(404).json({ mensaje: 'Producto no encontrado' });
 
-    res.json({ mensaje: 'Estado actualizado', producto });
+    res.json({ mensaje: 'Estado del producto actualizado', producto });
   } catch (error) {
     console.error("Error al cambiar estado:", error);
     res.status(500).json({ mensaje: 'Error al cambiar estado del producto', error: error.message });

@@ -1,10 +1,23 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const historialSchema = new mongoose.Schema({
-  accion: { type: String, required: true },
-  usuarioAfectado: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: true },
-  realizadoPor: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: false }, // Ahora es opcional
-  fecha: { type: Date, default: Date.now },
+  usuario: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Usuario',
+    required: true
+  },
+  producto: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Producto',
+    required: true
+  },
+  fecha: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model("Historial", historialSchema);
+// Prevenir que el mismo producto se guarde más de una vez por usuario
+historialSchema.index({ usuario: 1, producto: 1 }, { unique: true });
+
+module.exports = mongoose.model('Historial', historialSchema);
