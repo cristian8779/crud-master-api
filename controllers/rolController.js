@@ -21,6 +21,12 @@ const invitarCambioRol = async (req, res) => {
     return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede enviar invitaciones de rol." });
   }
 
+  // ⚠️ Limpieza automática: marcar expiradas como 'expirado'
+  await RolRequest.updateMany(
+    { estado: "pendiente", expiracion: { $lt: new Date() } },
+    { $set: { estado: "expirado" } }
+  );
+
   const credencial = await Credenciales.findOne({ email });
   if (!credencial) {
     return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
@@ -99,16 +105,16 @@ const confirmarInvitacionRol = async (req, res) => {
   }
 };
 
-// ✅ Ver todas las invitaciones (ley de visibilidad del sistema)
+// ✅ Ver todas las invitaciones (solo SuperAdmin)
 const listarInvitacionesRol = async (req, res) => {
   if (req.usuario.rol !== "superAdmin") {
     return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede ver las invitaciones." });
   }
 
   try {
-    const ahora = new Date();
+    // Limpieza automática
     await RolRequest.updateMany(
-      { estado: "pendiente", expiracion: { $lt: ahora } },
+      { estado: "pendiente", expiracion: { $lt: new Date() } },
       { $set: { estado: "expirado" } }
     );
 
