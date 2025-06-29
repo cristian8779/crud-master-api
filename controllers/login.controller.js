@@ -2,6 +2,8 @@ const { OAuth2Client } = require("google-auth-library");
 const jwt = require("jsonwebtoken");
 const Usuario = require("../models/Usuario");
 const Credenciales = require("../models/Credenciales");
+const generarPlantillaBienvenida = require("../utils/plantillaBienvenida");
+const resend = require("../config/resend");
 
 require("dotenv").config();
 
@@ -29,15 +31,21 @@ const loginGoogle = async (req, res) => {
       return res.status(400).json({ mensaje: "No se pudo obtener el correo electrónico del token" });
     }
 
-    // Buscar credenciales existentes
     let credencial = await Credenciales.findOne({ email });
     let usuario;
 
-    if (!credencial) {
-      // Crear credenciales y usuario si no existen
+    if (credencial) {
+      if (credencial.metodo !== "google") {
+        return res.status(400).json({
+          mensaje: "Este correo ya está registrado con contraseña. Iniciá sesión con correo y contraseña.",
+        });
+      }
+
+      usuario = await Usuario.findOne({ credenciales: credencial._id });
+    } else {
       credencial = new Credenciales({
         email,
-        password: "GOOGLE_LOGIN", // no se usa, pero requerido por esquema
+        password: "GOOGLE_LOGIN",
         rol: "usuario",
         metodo: "google",
       });
@@ -49,21 +57,19 @@ const loginGoogle = async (req, res) => {
         credenciales: credencial._id,
       });
       await usuario.save();
-    } else {
-      // Si ya existe, obtener usuario relacionado
-      usuario = await Usuario.findOne({ credenciales: credencial._id });
+
+      await resend.emails.send({
+        from: "Soporte <soporte@soportee.store>",
+        to: email,
+        subject: "¡Bienvenido a la plataforma!",
+        html: generarPlantillaBienvenida(nombre),
+      });
     }
 
-    // Generar JWT
     const token = jwt.sign(
-      {
-        id: usuario._id,
-        rol: credencial.rol,
-      },
+      { id: usuario._id, rol: credencial.rol },
       process.env.JWT_SECRET,
-      {
-        expiresIn: credencial.rol === "admin" ? "30d" : "1h",
-      }
+      { expiresIn: "1h" }
     );
 
     return res.json({
@@ -78,7 +84,10 @@ const loginGoogle = async (req, res) => {
     });
   } catch (error) {
     console.error("Error verificando token de Google:", error);
-    return res.status(401).json({ mensaje: "Token de Google inválido", error: error.message });
+    return res.status(401).json({
+      mensaje: "Token de Google inválido",
+      error: error.message,
+    });
   }
 };
 
