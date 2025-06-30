@@ -26,7 +26,6 @@ const invitarCambioRol = async (req, res) => {
     return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
   }
 
-  // Verificar si hay una invitación pendiente válida
   const yaExiste = await RolRequest.findOne({ email, estado: "pendiente" });
   if (yaExiste) {
     return res.status(409).json({
@@ -47,7 +46,7 @@ const invitarCambioRol = async (req, res) => {
 
   await solicitud.save();
 
-  const link = `${process.env.FRONTEND_URL}/confirmar-rol?token=${token}`;
+  const link = `https://crud-master-api-uf7o.onrender.com/confirmar-rol.html?token=${token}`;
 
   await resend.emails.send({
     from: "Soporte <soporte@soportee.store>",
@@ -107,7 +106,6 @@ const listarInvitacionesRol = async (req, res) => {
   }
 
   try {
-    // Ya no se hace limpieza aquí porque se hace vía cron
     const solicitudes = await RolRequest.find().sort({ createdAt: -1 });
 
     const resultado = solicitudes.map((s) => ({

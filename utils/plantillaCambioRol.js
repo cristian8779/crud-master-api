@@ -1,4 +1,6 @@
-const generarPlantillaRol = (nombre, nuevoRol, link) => {
+const generarPlantillaRol = (nombre, nuevoRol, token) => {
+  const link = `https://crud-master-api-uf7o.onrender.com/confirmar-rol.html?token=${token}`;
+
   return `
   <!DOCTYPE html>
   <html lang="es">
