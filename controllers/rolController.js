@@ -21,17 +21,12 @@ const invitarCambioRol = async (req, res) => {
     return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede enviar invitaciones de rol." });
   }
 
-  // ⚠️ Limpieza automática: marcar expiradas como 'expirado'
-  await RolRequest.updateMany(
-    { estado: "pendiente", expiracion: { $lt: new Date() } },
-    { $set: { estado: "expirado" } }
-  );
-
   const credencial = await Credenciales.findOne({ email });
   if (!credencial) {
     return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
   }
 
+  // Verificar si hay una invitación pendiente válida
   const yaExiste = await RolRequest.findOne({ email, estado: "pendiente" });
   if (yaExiste) {
     return res.status(409).json({
@@ -112,12 +107,7 @@ const listarInvitacionesRol = async (req, res) => {
   }
 
   try {
-    // Limpieza automática
-    await RolRequest.updateMany(
-      { estado: "pendiente", expiracion: { $lt: new Date() } },
-      { $set: { estado: "expirado" } }
-    );
-
+    // Ya no se hace limpieza aquí porque se hace vía cron
     const solicitudes = await RolRequest.find().sort({ createdAt: -1 });
 
     const resultado = solicitudes.map((s) => ({

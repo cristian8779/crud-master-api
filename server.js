@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/database');
+const { iniciarExpiracionAutomatica } = require('./config/cronJobs'); // 🚀 Cron de expiración
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,16 +19,16 @@ const ventaRoutes = require('./routes/ventaRoutes');
 const carritoRoutes = require('./routes/carritoRoutes');
 const favoritoRoutes = require('./routes/favoritoRoutes');
 const resenaRoutes = require('./routes/resenas');              // Reseñas de productos
-const historialRoutes = require('./routes/historial');        // Historial de productos vistos
-const loginRoutes = require('./routes/login.Routes');        // Login con Google
-const rolRoutes = require('./routes/rolRoutes');            // Rutas de cambio de rol
-const adminRoutes = require('./routes/adminRoutes');          // Rutas de administración
+const historialRoutes = require('./routes/historial');         // Historial de productos vistos
+const loginRoutes = require('./routes/login.Routes');          // Login con Google
+const rolRoutes = require('./routes/rolRoutes');               // Cambio de rol
+const adminRoutes = require('./routes/adminRoutes');           // Gestión de admins
 
 // 🛡️ Middlewares
 app.use(express.json());
 app.use(cors());
 
-// 🗂️ Servir archivos estáticos (por ejemplo, imágenes o frontend)
+// 🗂️ Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 🔌 Montar rutas con prefijo /api
@@ -41,10 +42,11 @@ app.use('/api/ventas', ventaRoutes);
 app.use('/api/carrito', carritoRoutes);
 app.use('/api/favoritos', favoritoRoutes);
 app.use('/api/resenas', resenaRoutes);
-app.use('/api/historial', require('./routes/historial')); // Historial de productos vistos
-app.use('/api', loginRoutes); // Login con Google
-app.use('/api/rol', require('./routes/rolRoutes')); // Rutas de cambio de rol
-app.use('/api/admin', require('./routes/adminRoutes')); // Rutas de administración
+app.use('/api/historial', historialRoutes);
+app.use('/api', loginRoutes);
+app.use('/api/rol', rolRoutes);
+app.use('/api/admin', adminRoutes);
+
 // Ruta base
 app.get('/', (req, res) => {
   res.send('🚀 API funcionando correctamente');
@@ -53,7 +55,8 @@ app.get('/', (req, res) => {
 // 🧠 Conectar a base de datos y lanzar servidor
 const startServer = async () => {
   try {
-    await connectDB();
+    await connectDB();                          // 🔌 Conexión MongoDB
+    iniciarExpiracionAutomatica();              // ⏰ Iniciar cron cada 5 min
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🔥 Servidor corriendo en http://0.0.0.0:${PORT}`);
     });
