@@ -4,49 +4,42 @@ const RolRequest = require("../models/RolRequest");
 const generarPlantillaRol = require("../utils/plantillaCambioRol");
 const resend = require("../config/resend");
 
-// ✅ Enviar invitación de cambio de rol (solo SuperAdmin)
+const BASE_URL = "https://crud-master-api-uf7o.onrender.com";
+
+// ✅ Enviar invitación de cambio de rol
 const invitarCambioRol = async (req, res) => {
   const { email, nuevoRol } = req.body;
 
-  if (!email || !nuevoRol) {
+  if (!email || !nuevoRol)
     return res.status(400).json({ mensaje: "Debes proporcionar un email válido y un nuevo rol." });
-  }
 
   const rolesPermitidos = ["admin", "superAdmin"];
-  if (!rolesPermitidos.includes(nuevoRol)) {
+  if (!rolesPermitidos.includes(nuevoRol))
     return res.status(400).json({ mensaje: "El rol especificado no es válido." });
-  }
 
-  if (req.usuario.rol !== "superAdmin") {
-    return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede enviar invitaciones de rol." });
-  }
+  if (req.usuario.rol !== "superAdmin")
+    return res.status(403).json({ mensaje: "Solo el SuperAdmin puede enviar invitaciones de rol." });
 
   const credencial = await Credenciales.findOne({ email });
-  if (!credencial) {
+  if (!credencial)
     return res.status(404).json({ mensaje: "No existe ningún usuario registrado con ese correo." });
-  }
 
   const yaExiste = await RolRequest.findOne({ email, estado: "pendiente" });
-  if (yaExiste) {
-    return res.status(409).json({
-      mensaje: "Ya existe una invitación pendiente para este correo. Espera a que expire o sea confirmada.",
-    });
-  }
+  if (yaExiste)
+    return res.status(409).json({ mensaje: "Ya existe una invitación pendiente para este correo." });
 
   const token = jwt.sign({ email, nuevoRol }, process.env.JWT_SECRET, { expiresIn: "5m" });
-  const expiracion = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+  const expiracion = new Date(Date.now() + 5 * 60 * 1000);
 
-  const solicitud = new RolRequest({
+  await new RolRequest({
     email,
     nuevoRol,
     token,
     expiracion,
     estado: "pendiente",
-  });
+  }).save();
 
-  await solicitud.save();
-
-  const link = `https://crud-master-api-uf7o.onrender.com/confirmar-rol.html?token=${token}`;
+  const link = `${BASE_URL}/confirmar-rol.html?token=${token}`;
 
   await resend.emails.send({
     from: "Soporte <soporte@soportee.store>",
@@ -56,9 +49,8 @@ const invitarCambioRol = async (req, res) => {
   });
 
   console.log(`📨 Invitación enviada a ${email} para cambiar a rol ${nuevoRol}`);
-
   return res.status(200).json({
-    mensaje: `La invitación ha sido enviada correctamente al correo ${email}. Tendrá una validez de 5 minutos.`,
+    mensaje: `La invitación ha sido enviada correctamente al correo ${email}.`,
     ...(process.env.NODE_ENV !== "production" && { link }),
   });
 };
@@ -67,26 +59,22 @@ const invitarCambioRol = async (req, res) => {
 const confirmarInvitacionRol = async (req, res) => {
   const token = req.body.token || req.query.token;
 
-  if (!token) {
-    return res.status(400).send("Token requerido para confirmar el cambio de rol.");
-  }
+  if (!token) return res.status(400).send("Token requerido para confirmar el cambio de rol.");
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const solicitud = await RolRequest.findOne({ token });
 
-    if (!solicitud) {
+    if (!solicitud)
       return res.status(404).send("No se encontró ninguna invitación con ese token.");
-    }
 
-    if (solicitud.estado === "confirmado") {
+    if (solicitud.estado === "confirmado")
       return res.status(400).send("Esta invitación ya fue confirmada anteriormente.");
-    }
 
     if (solicitud.expiracion < new Date()) {
       solicitud.estado = "expirado";
       await solicitud.save();
-      return res.status(400).send("El enlace ha expirado. Solicita una nueva invitación si es necesario.");
+      return res.status(400).send("El enlace ha expirado.");
     }
 
     await Credenciales.updateOne({ email: solicitud.email }, { rol: solicitud.nuevoRol });
@@ -99,11 +87,10 @@ const confirmarInvitacionRol = async (req, res) => {
   }
 };
 
-// ✅ Ver todas las invitaciones (solo SuperAdmin)
+// ✅ Ver todas las invitaciones
 const listarInvitacionesRol = async (req, res) => {
-  if (req.usuario.rol !== "superAdmin") {
+  if (req.usuario.rol !== "superAdmin")
     return res.status(403).json({ mensaje: "Acceso denegado. Solo el SuperAdmin puede ver las invitaciones." });
-  }
 
   try {
     const solicitudes = await RolRequest.find().sort({ createdAt: -1 });

@@ -1,5 +1,7 @@
 const generarPlantillaRol = (nombre, nuevoRol, token) => {
-  const link = `https://crud-master-api-uf7o.onrender.com/confirmar-rol.html?token=${token}`;
+  // Asegurarse de que solo usamos el token, no un link malformado
+  const BASE_URL = "https://crud-master-api-uf7o.onrender.com";
+  const link = `${BASE_URL}/confirmar-rol.html?token=${encodeURIComponent(token)}`;
 
   return `
   <!DOCTYPE html>

@@ -52,18 +52,6 @@
     }
     .error { color: #d9534f; font-weight: 600; }
     .success { color: #27ae60; font-weight: 600; }
-    .btn {
-      margin-top: 30px;
-      display: inline-block;
-      padding: 12px 24px;
-      background-color: var(--primary);
-      color: #fff;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      transition: background 0.3s ease-in-out;
-    }
-    .btn:hover { background-color: #c0392b; }
   </style>
 </head>
 <body>
@@ -76,13 +64,24 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    let token = params.get("token");
+
     const mensaje = document.getElementById("mensaje");
     const spinner = document.getElementById("spinner");
 
+    // Validación extra: prevenir que el token venga malformado como 'https://...token=...'
+    if (token && token.includes("token=")) {
+      try {
+        const urlParsed = new URL(token);
+        token = new URLSearchParams(urlParsed.search).get("token");
+      } catch (e) {
+        token = null; // formato inválido
+      }
+    }
+
     if (!token) {
       spinner.style.display = "none";
-      mensaje.innerHTML = "<div class='error'>❌ Token no encontrado en la URL.</div>";
+      mensaje.innerHTML = "<div class='error'>❌ Token no encontrado o inválido en la URL.</div>";
     } else {
       fetch("https://crud-master-api-uf7o.onrender.com/api/rol/confirmar", {
         method: "POST",
@@ -97,7 +96,7 @@
         }
 
         const html = await res.text();
-        mensaje.innerHTML = html + `<br/><a href="/" class="btn">Volver al inicio</a>`;
+        mensaje.innerHTML = html;
       })
       .catch((err) => {
         spinner.style.display = "none";
